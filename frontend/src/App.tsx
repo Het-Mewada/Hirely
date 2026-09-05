@@ -4,7 +4,7 @@ export function App() {
   const [apiStatus, setApiStatus] = useState<string>('Checking...')
   
   // Navigation Tab State
-  const [activeTab, setActiveTab] = useState<'signup' | 'login' | 'jobs' | 'candidates' | 'pipeline'>('pipeline')
+  const [activeTab, setActiveTab] = useState<'signup' | 'login' | 'jobs' | 'candidates' | 'pipeline'>('candidates')
   
   // Auth Form State
   const [companyName, setCompanyName] = useState('Acme Corp')
@@ -24,7 +24,7 @@ export function App() {
   const [candLastName, setCandLastName] = useState('Doe')
   const [candEmail, setCandEmail] = useState('john.doe@gmail.com')
   const [candPhone, setCandPhone] = useState('+1 555-0199')
-  const [candResumeUrl, setCandResumeUrl] = useState('https://s3.amazonaws.com/hirely/resumes/john_doe.pdf')
+  const [selectedResumeFile, setSelectedResumeFile] = useState<File | null>(null)
 
   // Data State
   const [authResponse, setAuthResponse] = useState<any>(null)
@@ -88,6 +88,67 @@ export function App() {
     }
   }
 
+  const handleCreateCandidate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!authResponse?.access_token) return
+    setLoading(true)
+    setAuthError('')
+    try {
+      const res = await fetch('http://localhost:8000/api/v1/candidates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authResponse.access_token}` },
+        body: JSON.stringify({ first_name: candFirstName, last_name: candLastName, email: candEmail, phone: candPhone })
+      })
+      const candidateData = await res.json()
+      if (!res.ok) throw new Error(candidateData.detail || 'Failed to create candidate profile')
+
+      // If a resume file was selected, upload it
+      if (selectedResumeFile) {
+        const formData = new FormData()
+        formData.append('file', selectedResumeFile)
+        const uploadRes = await fetch(`http://localhost:8000/api/v1/candidates/${candidateData.id}/resume`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${authResponse.access_token}` },
+          body: formData
+        })
+        const uploadData = await uploadRes.json()
+        if (!uploadRes.ok) throw new Error(uploadData.detail || 'Resume upload failed')
+        setDemoResponse({ endpoint: `POST /candidates/${candidateData.id}/resume`, status: uploadRes.status, data: uploadData })
+      } else {
+        setDemoResponse({ endpoint: 'POST /candidates', status: res.status, data: candidateData })
+      }
+
+      fetchCandidatesList()
+    } catch (err: any) {
+      setAuthError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUploadResumeExisting = async (candId: string, file: File) => {
+    if (!authResponse?.access_token) return
+    setLoading(true)
+    setAuthError('')
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch(`http://localhost:8000/api/v1/candidates/${candId}/resume`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${authResponse.access_token}` },
+        body: formData
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || 'Resume upload failed')
+      setDemoResponse({ endpoint: `POST /candidates/${candId}/resume`, status: res.status, data })
+      fetchCandidatesList()
+    } catch (err: any) {
+      setAuthError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleCreateJob = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!authResponse?.access_token) return
@@ -111,28 +172,6 @@ export function App() {
     }
   }
 
-  const handleCreateCandidate = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!authResponse?.access_token) return
-    setLoading(true)
-    setAuthError('')
-    try {
-      const res = await fetch('http://localhost:8000/api/v1/candidates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authResponse.access_token}` },
-        body: JSON.stringify({ first_name: candFirstName, last_name: candLastName, email: candEmail, phone: candPhone, resume_url: candResumeUrl })
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || 'Failed to create candidate')
-      setDemoResponse({ endpoint: 'POST /candidates', status: res.status, data })
-      fetchCandidatesList()
-    } catch (err: any) {
-      setAuthError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
   const handleCreateApplication = async () => {
     if (!authResponse?.access_token || !selectedJobId || !selectedCandidateId) return
     setLoading(true)
@@ -141,7 +180,7 @@ export function App() {
       const res = await fetch('http://localhost:8000/api/v1/applications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authResponse.access_token}` },
-        body: JSON.stringify({ job_posting_id: selectedJobId, candidate_id: selectedCandidateId, notes: 'Submitted via Hirely Portal' })
+        body: JSON.stringify({ job_posting_id: selectedJobId, candidate_id: selectedCandidateId, notes: 'Submitted via Portal' })
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || 'Failed to link candidate to job')
@@ -161,7 +200,7 @@ export function App() {
       const res = await fetch(`http://localhost:8000/api/v1/applications/${appId}/stage`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authResponse.access_token}` },
-        body: JSON.stringify({ stage: newStage, notes: `Moved to ${newStage} stage` })
+        body: JSON.stringify({ stage: newStage, notes: `Moved to ${newStage}` })
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || 'Failed to update stage')
@@ -234,7 +273,7 @@ export function App() {
           borderRadius: '50%',
           backgroundColor: apiStatus === 'healthy' || apiStatus === 'Connected' ? '#10b981' : '#ef4444'
         }} />
-        <span>✨ Phase 5 — Candidate & Application Pipeline Complete ({apiStatus})</span>
+        <span>✨ Phase 6 — Resume Upload & Storage Complete ({apiStatus})</span>
       </div>
 
       <h1 style={{ fontSize: '3rem', fontWeight: 800, marginBottom: '0.75rem', letterSpacing: '-0.025em' }}>
@@ -242,7 +281,7 @@ export function App() {
       </h1>
       
       <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', maxWidth: '750px', margin: '0 auto 2rem', lineHeight: '1.5' }}>
-        Multi-Tenant Candidate Management & Application Pipeline Stage Tracking.
+        Tenant-Isolated Resume Uploads & Document Storage (PDF, DOCX, TXT).
       </p>
 
       {/* Navigation Bar */}
@@ -255,7 +294,7 @@ export function App() {
         border: '1px solid var(--border-color)',
         marginBottom: '2rem'
       }}>
-        {(['pipeline', 'jobs', 'candidates', 'signup', 'login'] as const).map(tab => (
+        {(['candidates', 'pipeline', 'jobs', 'signup', 'login'] as const).map(tab => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -271,30 +310,117 @@ export function App() {
               textTransform: 'capitalize'
             }}
           >
-            {tab === 'pipeline' ? '⚡ Pipeline Kanban' : tab === 'jobs' ? '💼 Jobs' : tab === 'candidates' ? '👥 Candidates' : tab === 'signup' ? '🏢 Tenant Signup' : '🔑 Login'}
+            {tab === 'candidates' ? '📄 Candidates & Resumes' : tab === 'pipeline' ? '⚡ Pipeline Kanban' : tab === 'jobs' ? '💼 Jobs' : tab === 'signup' ? '🏢 Tenant Signup' : '🔑 Login'}
           </button>
         ))}
       </div>
 
       {!authResponse && (
         <div style={{ maxWidth: '600px', margin: '0 auto 2rem', padding: '1rem', borderRadius: '0.75rem', backgroundColor: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.3)', color: '#facc15', fontSize: '0.9rem' }}>
-          ⚠️ Please sign up a company or log in to access the Candidate Pipeline and Job Postings.
+          ⚠️ Please sign up a company or log in to upload candidate resumes and manage files.
         </div>
       )}
 
       {/* Auth Notification Bar */}
       {authResponse && (
-        <div style={{ maxWidth: '900px', margin: '0 auto 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-card)', padding: '0.75rem 1.25rem', borderRadius: '0.75rem', border: '1px solid var(--border-color)' }}>
+        <div style={{ maxWidth: '950px', margin: '0 auto 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-card)', padding: '0.75rem 1.25rem', borderRadius: '0.75rem', border: '1px solid var(--border-color)' }}>
           <div style={{ fontSize: '0.85rem', color: '#34d399', fontWeight: 600 }}>
             🏢 {authResponse.organization.name} | 👤 {authResponse.user.full_name} ({authResponse.user.role.toUpperCase()})
           </div>
           <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            Tenant ID: <code>{authResponse.organization.id.substring(0, 8)}...</code>
+            Storage Path: <code>uploads/{authResponse.organization.id.substring(0, 8)}.../resumes/</code>
           </div>
         </div>
       )}
 
       {/* Main Tab Panels */}
+      {activeTab === 'candidates' && (
+        <div style={{ maxWidth: '1050px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem', textAlign: 'left' }}>
+          {/* Left Column: Create Candidate & Resume Upload Form */}
+          <div style={{ backgroundColor: 'var(--bg-card)', padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
+            <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem', fontWeight: 600 }}>Create Candidate & Upload Resume</h3>
+            <form onSubmit={handleCreateCandidate} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>First Name</label>
+                  <input type="text" value={candFirstName} onChange={(e) => setCandFirstName(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Last Name</label>
+                  <input type="text" value={candLastName} onChange={(e) => setCandLastName(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Email</label>
+                <input type="email" value={candEmail} onChange={(e) => setCandEmail(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Phone</label>
+                <input type="text" value={candPhone} onChange={(e) => setCandPhone(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Resume File (PDF, DOCX, TXT - Max 10MB)</label>
+                <input
+                  type="file"
+                  accept=".pdf,.docx,.txt"
+                  onChange={(e) => setSelectedResumeFile(e.target.files?.[0] || null)}
+                  style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px dashed var(--primary-accent)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', fontSize: '0.8rem' }}
+                />
+              </div>
+              <button type="submit" disabled={loading || !authResponse} style={{ marginTop: '0.5rem', padding: '0.75rem', borderRadius: '0.375rem', border: 'none', background: 'var(--primary-gradient)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
+                {loading ? 'Uploading...' : 'Save Profile & Upload Resume'}
+              </button>
+            </form>
+          </div>
+
+          {/* Right Column: Existing Candidate Roster & Upload Status */}
+          <div style={{ backgroundColor: 'var(--bg-card)', padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600 }}>Candidate Profiles ({candidatesList.length})</h3>
+              {authResponse && <button onClick={fetchCandidatesList} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', borderRadius: '0.25rem', border: 'none', backgroundColor: '#3b82f6', color: 'white', cursor: 'pointer' }}>Refresh</button>}
+            </div>
+
+            {candidatesList.length === 0 ? (
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>No candidate profiles created yet.</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem', maxHeight: '420px', overflowY: 'auto' }}>
+                {candidatesList.map(cand => (
+                  <div key={cand.id} style={{ padding: '0.875rem', borderRadius: '0.5rem', backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{cand.first_name} {cand.last_name}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.15rem 0 0.5rem' }}>{cand.email} {cand.phone ? `• ${cand.phone}` : ''}</div>
+                    
+                    {cand.resume_url ? (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.35rem' }}>
+                        <span style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 600 }}>📄 Resume Uploaded</span>
+                        <a
+                          href={`http://localhost:8000${cand.resume_url}${authResponse?.access_token ? `?token=${authResponse.access_token}` : ''}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ fontSize: '0.75rem', color: '#60a5fa', textDecoration: 'underline' }}
+                        >
+                          Download File
+                        </a>
+                      </div>
+                    ) : (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.35rem' }}>
+                        <input
+                          type="file"
+                          accept=".pdf,.docx,.txt"
+                          onChange={(e) => {
+                            if (e.target.files?.[0]) handleUploadResumeExisting(cand.id, e.target.files[0])
+                          }}
+                          style={{ fontSize: '0.7rem', color: 'var(--text-secondary)' }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {activeTab === 'pipeline' && (
         <div style={{ maxWidth: '1150px', margin: '0 auto' }}>
           {/* Quick Apply Action Panel */}
@@ -307,11 +433,7 @@ export function App() {
                 style={{ padding: '0.5rem', borderRadius: '0.375rem', backgroundColor: '#1e293b', color: '#f8fafc', border: '1px solid var(--border-color)' }}
               >
                 <option value="" style={{ backgroundColor: '#1e293b', color: '#f8fafc' }}>-- Select Candidate --</option>
-                {candidatesList.map(c => (
-                  <option key={c.id} value={c.id} style={{ backgroundColor: '#1e293b', color: '#f8fafc' }}>
-                    {c.first_name} {c.last_name} ({c.email})
-                  </option>
-                ))}
+                {candidatesList.map(c => <option key={c.id} value={c.id} style={{ backgroundColor: '#1e293b', color: '#f8fafc' }}>{c.first_name} {c.last_name} ({c.email})</option>)}
               </select>
 
               <select
@@ -320,11 +442,7 @@ export function App() {
                 style={{ padding: '0.5rem', borderRadius: '0.375rem', backgroundColor: '#1e293b', color: '#f8fafc', border: '1px solid var(--border-color)' }}
               >
                 <option value="" style={{ backgroundColor: '#1e293b', color: '#f8fafc' }}>-- Select Job Posting --</option>
-                {jobsList.map(j => (
-                  <option key={j.id} value={j.id} style={{ backgroundColor: '#1e293b', color: '#f8fafc' }}>
-                    {j.title}
-                  </option>
-                ))}
+                {jobsList.map(j => <option key={j.id} value={j.id} style={{ backgroundColor: '#1e293b', color: '#f8fafc' }}>{j.title}</option>)}
               </select>
 
               <button
@@ -366,7 +484,6 @@ export function App() {
                           {app.job_posting ? app.job_posting.title : 'Job Posting'}
                         </div>
                         
-                        {/* Stage Selector Dropdown */}
                         <select
                           value={app.stage}
                           onChange={(e) => handleUpdateStage(app.id, e.target.value)}
@@ -385,39 +502,6 @@ export function App() {
               )
             })}
           </div>
-        </div>
-      )}
-
-      {activeTab === 'candidates' && (
-        <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'left', backgroundColor: 'var(--bg-card)', padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
-          <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem', fontWeight: 600 }}>Create Candidate Profile</h3>
-          <form onSubmit={handleCreateCandidate} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>First Name</label>
-                <input type="text" value={candFirstName} onChange={(e) => setCandFirstName(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
-              </div>
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Last Name</label>
-                <input type="text" value={candLastName} onChange={(e) => setCandLastName(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
-              </div>
-            </div>
-            <div>
-              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Email</label>
-              <input type="email" value={candEmail} onChange={(e) => setCandEmail(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
-            </div>
-            <div>
-              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Phone</label>
-              <input type="text" value={candPhone} onChange={(e) => setCandPhone(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} />
-            </div>
-            <div>
-              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Resume URL Reference</label>
-              <input type="text" value={candResumeUrl} onChange={(e) => setCandResumeUrl(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} />
-            </div>
-            <button type="submit" disabled={loading || !authResponse} style={{ marginTop: '0.5rem', padding: '0.65rem', borderRadius: '0.375rem', border: 'none', background: 'var(--primary-gradient)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
-              POST /api/v1/candidates
-            </button>
-          </form>
         </div>
       )}
 
@@ -506,7 +590,7 @@ export function App() {
       )}
 
       {demoResponse && (
-        <div style={{ maxWidth: '900px', margin: '1.5rem auto 0', padding: '1rem', borderRadius: '0.75rem', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', textAlign: 'left' }}>
+        <div style={{ maxWidth: '950px', margin: '1.5rem auto 0', padding: '1rem', borderRadius: '0.75rem', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', textAlign: 'left' }}>
           <span style={{ fontSize: '0.8rem', color: '#60a5fa', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>
             API Response [{demoResponse.endpoint}] - Status {demoResponse.status}:
           </span>

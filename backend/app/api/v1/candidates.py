@@ -1,4 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+import os
+from fastapi import APIRouter, Depends, HTTPException, status, Query, UploadFile, File
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from typing import List
 from uuid import UUID
@@ -6,8 +8,10 @@ from app.db.session import get_db
 from app.api.deps import get_current_user, require_role
 from app.models.user import User, UserRole
 from app.models.candidate import Candidate
+from app.models.audit_log import AuditLog
 from app.repositories.base import TenantRepository
 from app.schemas.candidate import CandidateCreate, CandidateUpdate, CandidateOut
+from app.services.storage import StorageService
 
 router = APIRouter(prefix="/candidates", tags=["Candidates"])
 
@@ -36,6 +40,83 @@ def create_candidate(
     candidate = repo.create(data)
     return CandidateOut.model_validate(candidate)
 
+@router.post("/{candidate_id}/resume", response_model=CandidateOut)
+async def upload_candidate_resume(
+    candidate_id: UUID,
+    file: UploadFile = File(...),
+    current_user: User = Depends(require_role(UserRole.ADMIN, UserRole.RECRUITER)),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload a resume file (PDF, DOCX, TXT) for a candidate.
+    Stored per-tenant under uploads/{organization_id}/resumes/.
+    Updates Candidate.resume_url field and logs audit event.
+    """
+    repo = TenantRepository(Candidate, db, current_user.organization_id)
+    candidate = repo.get(candidate_id)
+    if not candidate:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Candidate with ID '{candidate_id}' not found in your organization."
+        )
+
+    content = await file.read()
+    relative_url, abs_path = StorageService.save_candidate_resume(
+        organization_id=current_user.organization_id,
+        candidate_id=candidate_id,
+        file=file,
+        content=content
+    )
+
+    # Update candidate resume_url
+    updated_candidate = repo.update(candidate_id, {"resume_url": relative_url})
+
+    # Log audit event
+    audit_log = AuditLog(
+        organization_id=current_user.organization_id,
+        user_id=current_user.id,
+        action="candidate.resume_uploaded",
+        entity_type="Candidate",
+        entity_id=str(candidate_id),
+        details={"filename": file.filename, "size_bytes": len(content)}
+    )
+    db.add(audit_log)
+    db.commit()
+
+    return CandidateOut.model_validate(updated_candidate)
+
+@router.get("/{candidate_id}/resume")
+def download_candidate_resume(
+    candidate_id: UUID,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Download a candidate's resume file.
+    Enforces tenant isolation: Returns 404 if candidate does not exist in caller's organization.
+    """
+    repo = TenantRepository(Candidate, db, current_user.organization_id)
+    candidate = repo.get(candidate_id)
+    if not candidate or not candidate.resume_url:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Resume for candidate ID '{candidate_id}' not found."
+        )
+
+    abs_path = StorageService.get_resume_file_path(
+        organization_id=current_user.organization_id,
+        candidate_id=candidate_id,
+        resume_path_or_url=candidate.resume_url
+    )
+
+    _, ext = os.path.splitext(abs_path)
+    download_filename = f"{candidate.email}_Resume{ext}"
+    return FileResponse(
+        path=abs_path,
+        filename=download_filename,
+        media_type="application/octet-stream"
+    )
+
 @router.get("", response_model=List[CandidateOut])
 def list_candidates(
     skip: int = Query(0, ge=0),
@@ -45,7 +126,6 @@ def list_candidates(
 ):
     """
     List all candidates for caller's organization.
-    Accessible to all authenticated tenant users.
     """
     repo = TenantRepository(Candidate, db, current_user.organization_id)
     candidates = repo.list(skip=skip, limit=limit)

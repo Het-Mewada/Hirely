@@ -12,6 +12,11 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
 
+    # File Storage Configuration
+    STORAGE_DIR: str = "uploads"
+    MAX_UPLOAD_SIZE_MB: int = 10
+    ALLOWED_EXTENSIONS: List[str] = [".pdf", ".docx", ".txt"]
+
     POSTGRES_SERVER: str = "localhost"
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str = "postgres_password"
