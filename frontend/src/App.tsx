@@ -304,19 +304,27 @@ export function App() {
               <select
                 value={selectedCandidateId}
                 onChange={(e) => setSelectedCandidateId(e.target.value)}
-                style={{ padding: '0.5rem', borderRadius: '0.375rem', backgroundColor: 'rgba(0,0,0,0.4)', color: 'white', border: '1px solid var(--border-color)' }}
+                style={{ padding: '0.5rem', borderRadius: '0.375rem', backgroundColor: '#1e293b', color: '#f8fafc', border: '1px solid var(--border-color)' }}
               >
-                <option value="">-- Select Candidate --</option>
-                {candidatesList.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name} ({c.email})</option>)}
+                <option value="" style={{ backgroundColor: '#1e293b', color: '#f8fafc' }}>-- Select Candidate --</option>
+                {candidatesList.map(c => (
+                  <option key={c.id} value={c.id} style={{ backgroundColor: '#1e293b', color: '#f8fafc' }}>
+                    {c.first_name} {c.last_name} ({c.email})
+                  </option>
+                ))}
               </select>
 
               <select
                 value={selectedJobId}
                 onChange={(e) => setSelectedJobId(e.target.value)}
-                style={{ padding: '0.5rem', borderRadius: '0.375rem', backgroundColor: 'rgba(0,0,0,0.4)', color: 'white', border: '1px solid var(--border-color)' }}
+                style={{ padding: '0.5rem', borderRadius: '0.375rem', backgroundColor: '#1e293b', color: '#f8fafc', border: '1px solid var(--border-color)' }}
               >
-                <option value="">-- Select Job Posting --</option>
-                {jobsList.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
+                <option value="" style={{ backgroundColor: '#1e293b', color: '#f8fafc' }}>-- Select Job Posting --</option>
+                {jobsList.map(j => (
+                  <option key={j.id} value={j.id} style={{ backgroundColor: '#1e293b', color: '#f8fafc' }}>
+                    {j.title}
+                  </option>
+                ))}
               </select>
 
               <button
@@ -362,9 +370,13 @@ export function App() {
                         <select
                           value={app.stage}
                           onChange={(e) => handleUpdateStage(app.id, e.target.value)}
-                          style={{ width: '100%', fontSize: '0.7rem', padding: '0.2rem', borderRadius: '0.25rem', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid var(--border-color)' }}
+                          style={{ width: '100%', fontSize: '0.7rem', padding: '0.2rem', borderRadius: '0.25rem', backgroundColor: '#1e293b', color: '#f8fafc', border: '1px solid var(--border-color)' }}
                         >
-                          {pipelineStages.map(s => <option key={s} value={s}>Move to {s}</option>)}
+                          {pipelineStages.map(s => (
+                            <option key={s} value={s} style={{ backgroundColor: '#1e293b', color: '#f8fafc' }}>
+                              Move to {s}
+                            </option>
+                          ))}
                         </select>
                       </div>
                     ))}

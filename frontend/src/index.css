@@ -36,3 +36,8 @@ body {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+select option {
+  background-color: #1e293b;
+  color: #f8fafc;
+}
