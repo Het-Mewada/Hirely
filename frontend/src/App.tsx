@@ -3,8 +3,10 @@ import React, { useState, useEffect } from 'react'
 export function App() {
   const [apiStatus, setApiStatus] = useState<string>('Checking...')
   
+  // Navigation Tab State
+  const [activeTab, setActiveTab] = useState<'signup' | 'login' | 'jobs' | 'candidates' | 'pipeline'>('pipeline')
+  
   // Auth Form State
-  const [activeTab, setActiveTab] = useState<'signup' | 'login' | 'jobs'>('signup')
   const [companyName, setCompanyName] = useState('Acme Corp')
   const [adminName, setAdminName] = useState('Alice Admin')
   const [email, setEmail] = useState('alice@acme.com')
@@ -12,15 +14,26 @@ export function App() {
   
   // Job Form State
   const [jobTitle, setJobTitle] = useState('Senior Python Engineer')
-  const [jobDescription, setJobDescription] = useState('Design and build FastAPI multi-tenant SaaS application.')
+  const [jobDescription, setJobDescription] = useState('Build FastAPI backend.')
   const [department, setDepartment] = useState('Engineering')
   const [location, setLocation] = useState('Remote')
-  const [requiredSkillsStr, setRequiredSkillsStr] = useState('Python, FastAPI, PostgreSQL, Redis, Docker')
+  const [requiredSkillsStr, setRequiredSkillsStr] = useState('Python, FastAPI, PostgreSQL')
+
+  // Candidate Form State
+  const [candFirstName, setCandFirstName] = useState('John')
+  const [candLastName, setCandLastName] = useState('Doe')
+  const [candEmail, setCandEmail] = useState('john.doe@gmail.com')
+  const [candPhone, setCandPhone] = useState('+1 555-0199')
+  const [candResumeUrl, setCandResumeUrl] = useState('https://s3.amazonaws.com/hirely/resumes/john_doe.pdf')
 
   // Data State
   const [authResponse, setAuthResponse] = useState<any>(null)
   const [authError, setAuthError] = useState<string>('')
   const [jobsList, setJobsList] = useState<any[]>([])
+  const [candidatesList, setCandidatesList] = useState<any[]>([])
+  const [applicationsList, setApplicationsList] = useState<any[]>([])
+  const [selectedJobId, setSelectedJobId] = useState<string>('')
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string>('')
   const [demoResponse, setDemoResponse] = useState<any>(null)
   const [loading, setLoading] = useState(false)
 
@@ -36,23 +49,16 @@ export function App() {
     setLoading(true)
     setAuthError('')
     setAuthResponse(null)
-    setDemoResponse(null)
-
     try {
       const res = await fetch('http://localhost:8000/api/v1/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          company_name: companyName,
-          admin_email: email,
-          admin_password: password,
-          admin_full_name: adminName
-        })
+        body: JSON.stringify({ company_name: companyName, admin_email: email, admin_password: password, admin_full_name: adminName })
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || 'Signup failed')
       setAuthResponse(data)
-      setActiveTab('jobs')
+      setActiveTab('pipeline')
     } catch (err: any) {
       setAuthError(err.message)
     } finally {
@@ -65,21 +71,16 @@ export function App() {
     setLoading(true)
     setAuthError('')
     setAuthResponse(null)
-    setDemoResponse(null)
-
     try {
       const res = await fetch('http://localhost:8000/api/v1/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: email,
-          password: password
-        })
+        body: JSON.stringify({ email: email, password: password })
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || 'Login failed')
       setAuthResponse(data)
-      setActiveTab('jobs')
+      setActiveTab('pipeline')
     } catch (err: any) {
       setAuthError(err.message)
     } finally {
@@ -92,33 +93,80 @@ export function App() {
     if (!authResponse?.access_token) return
     setLoading(true)
     setAuthError('')
-
-    const skillsArray = requiredSkillsStr
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean)
-
     try {
+      const skillsArray = requiredSkillsStr.split(',').map(s => s.trim()).filter(Boolean)
       const res = await fetch('http://localhost:8000/api/v1/jobs', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authResponse.access_token}`
-        },
-        body: JSON.stringify({
-          title: jobTitle,
-          description: jobDescription,
-          department: department,
-          location: location,
-          status: 'published',
-          required_skills: skillsArray
-        })
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authResponse.access_token}` },
+        body: JSON.stringify({ title: jobTitle, description: jobDescription, department, location, status: 'published', required_skills: skillsArray })
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || 'Failed to create job posting')
-      
-      setDemoResponse({ endpoint: 'POST /api/v1/jobs', status: res.status, data })
+      if (!res.ok) throw new Error(data.detail || 'Failed to create job')
+      setDemoResponse({ endpoint: 'POST /jobs', status: res.status, data })
       fetchJobsList()
+    } catch (err: any) {
+      setAuthError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCreateCandidate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!authResponse?.access_token) return
+    setLoading(true)
+    setAuthError('')
+    try {
+      const res = await fetch('http://localhost:8000/api/v1/candidates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authResponse.access_token}` },
+        body: JSON.stringify({ first_name: candFirstName, last_name: candLastName, email: candEmail, phone: candPhone, resume_url: candResumeUrl })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || 'Failed to create candidate')
+      setDemoResponse({ endpoint: 'POST /candidates', status: res.status, data })
+      fetchCandidatesList()
+    } catch (err: any) {
+      setAuthError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleCreateApplication = async () => {
+    if (!authResponse?.access_token || !selectedJobId || !selectedCandidateId) return
+    setLoading(true)
+    setAuthError('')
+    try {
+      const res = await fetch('http://localhost:8000/api/v1/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authResponse.access_token}` },
+        body: JSON.stringify({ job_posting_id: selectedJobId, candidate_id: selectedCandidateId, notes: 'Submitted via Hirely Portal' })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || 'Failed to link candidate to job')
+      setDemoResponse({ endpoint: 'POST /applications', status: res.status, data })
+      fetchApplicationsList()
+    } catch (err: any) {
+      setAuthError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUpdateStage = async (appId: string, newStage: string) => {
+    if (!authResponse?.access_token) return
+    setLoading(true)
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1/applications/${appId}/stage`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authResponse.access_token}` },
+        body: JSON.stringify({ stage: newStage, notes: `Moved to ${newStage} stage` })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || 'Failed to update stage')
+      setDemoResponse({ endpoint: `PATCH /applications/${appId}/stage`, status: res.status, data })
+      fetchApplicationsList()
     } catch (err: any) {
       setAuthError(err.message)
     } finally {
@@ -128,27 +176,43 @@ export function App() {
 
   const fetchJobsList = async () => {
     if (!authResponse?.access_token) return
-    try {
-      const res = await fetch('http://localhost:8000/api/v1/jobs', {
-        headers: { 'Authorization': `Bearer ${authResponse.access_token}` }
-      })
-      const data = await res.json()
-      if (res.ok) {
-        setJobsList(data)
-      }
-    } catch (err) {
-      console.error(err)
+    const res = await fetch('http://localhost:8000/api/v1/jobs', { headers: { 'Authorization': `Bearer ${authResponse.access_token}` } })
+    const data = await res.json()
+    if (res.ok) {
+      setJobsList(data)
+      if (data.length > 0 && !selectedJobId) setSelectedJobId(data[0].id)
     }
+  }
+
+  const fetchCandidatesList = async () => {
+    if (!authResponse?.access_token) return
+    const res = await fetch('http://localhost:8000/api/v1/candidates', { headers: { 'Authorization': `Bearer ${authResponse.access_token}` } })
+    const data = await res.json()
+    if (res.ok) {
+      setCandidatesList(data)
+      if (data.length > 0 && !selectedCandidateId) setSelectedCandidateId(data[0].id)
+    }
+  }
+
+  const fetchApplicationsList = async () => {
+    if (!authResponse?.access_token) return
+    const res = await fetch('http://localhost:8000/api/v1/applications', { headers: { 'Authorization': `Bearer ${authResponse.access_token}` } })
+    const data = await res.json()
+    if (res.ok) setApplicationsList(data)
   }
 
   useEffect(() => {
     if (authResponse?.access_token) {
       fetchJobsList()
+      fetchCandidatesList()
+      fetchApplicationsList()
     }
   }, [authResponse])
 
+  const pipelineStages = ['applied', 'screening', 'interview', 'offer', 'hired', 'rejected']
+
   return (
-    <div className="container" style={{ textAlign: 'center', paddingTop: '3rem', paddingBottom: '4rem' }}>
+    <div className="container" style={{ textAlign: 'center', paddingTop: '2.5rem', paddingBottom: '4rem' }}>
       {/* Badge */}
       <div style={{
         display: 'inline-flex',
@@ -160,381 +224,285 @@ export function App() {
         border: '1px solid rgba(99, 102, 241, 0.3)',
         fontSize: '0.875rem',
         fontWeight: 600,
-        marginBottom: '1.5rem',
+        marginBottom: '1.25rem',
         color: '#a5b4fc',
         boxShadow: '0 0 15px rgba(99, 102, 241, 0.15)'
       }}>
-        <span>✨ Phase 4 — Job Posting CRUD Complete</span>
+        <span style={{
+          width: '8px',
+          height: '8px',
+          borderRadius: '50%',
+          backgroundColor: apiStatus === 'healthy' || apiStatus === 'Connected' ? '#10b981' : '#ef4444'
+        }} />
+        <span>✨ Phase 5 — Candidate & Application Pipeline Complete ({apiStatus})</span>
       </div>
 
-      <h1 style={{ fontSize: '3.25rem', fontWeight: 800, marginBottom: '1rem', letterSpacing: '-0.025em' }}>
+      <h1 style={{ fontSize: '3rem', fontWeight: 800, marginBottom: '0.75rem', letterSpacing: '-0.025em' }}>
         Welcome to <span className="gradient-text">Hirely</span>
       </h1>
       
-      <p style={{ fontSize: '1.15rem', color: 'var(--text-secondary)', maxWidth: '700px', margin: '0 auto 2.5rem', lineHeight: '1.6' }}>
-        Job Requisition Management with Required Skills Tagging & Role-Gated Access.
+      <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', maxWidth: '750px', margin: '0 auto 2rem', lineHeight: '1.5' }}>
+        Multi-Tenant Candidate Management & Application Pipeline Stage Tracking.
       </p>
 
-      {/* Main Split Layout */}
+      {/* Navigation Bar */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
-        gap: '1.5rem',
-        maxWidth: '1050px',
-        margin: '0 auto',
-        textAlign: 'left'
+        display: 'inline-flex',
+        gap: '0.5rem',
+        backgroundColor: 'var(--bg-card)',
+        padding: '0.35rem',
+        borderRadius: '0.75rem',
+        border: '1px solid var(--border-color)',
+        marginBottom: '2rem'
       }}>
-        
-        {/* Left Column: System Overview & Active Tenant Jobs */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '1rem',
-            padding: '1.5rem',
-            boxShadow: '0 15px 25px -5px rgba(0, 0, 0, 0.3)'
-          }}>
-            <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem', fontWeight: 600 }}>System Status</h3>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '0.75rem 1rem',
-              backgroundColor: 'rgba(0,0,0,0.25)',
+        {(['pipeline', 'jobs', 'candidates', 'signup', 'login'] as const).map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveTab(tab)}
+            style={{
+              padding: '0.5rem 1rem',
               borderRadius: '0.5rem',
-              border: '1px solid rgba(255, 255, 255, 0.05)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: apiStatus === 'healthy' || apiStatus === 'Connected' ? '#10b981' : '#ef4444'
-                }} />
-                <span>FastAPI Service</span>
-              </div>
-              <span style={{
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                color: apiStatus === 'healthy' || apiStatus === 'Connected' ? '#34d399' : '#f87171'
-              }}>
-                {apiStatus}
-              </span>
-            </div>
+              border: 'none',
+              backgroundColor: activeTab === tab ? 'var(--primary-accent)' : 'transparent',
+              color: activeTab === tab ? 'white' : 'var(--text-secondary)',
+              fontWeight: 600,
+              fontSize: '0.85rem',
+              cursor: 'pointer',
+              textTransform: 'capitalize'
+            }}
+          >
+            {tab === 'pipeline' ? '⚡ Pipeline Kanban' : tab === 'jobs' ? '💼 Jobs' : tab === 'candidates' ? '👥 Candidates' : tab === 'signup' ? '🏢 Tenant Signup' : '🔑 Login'}
+          </button>
+        ))}
+      </div>
+
+      {!authResponse && (
+        <div style={{ maxWidth: '600px', margin: '0 auto 2rem', padding: '1rem', borderRadius: '0.75rem', backgroundColor: 'rgba(234, 179, 8, 0.15)', border: '1px solid rgba(234, 179, 8, 0.3)', color: '#facc15', fontSize: '0.9rem' }}>
+          ⚠️ Please sign up a company or log in to access the Candidate Pipeline and Job Postings.
+        </div>
+      )}
+
+      {/* Auth Notification Bar */}
+      {authResponse && (
+        <div style={{ maxWidth: '900px', margin: '0 auto 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-card)', padding: '0.75rem 1.25rem', borderRadius: '0.75rem', border: '1px solid var(--border-color)' }}>
+          <div style={{ fontSize: '0.85rem', color: '#34d399', fontWeight: 600 }}>
+            🏢 {authResponse.organization.name} | 👤 {authResponse.user.full_name} ({authResponse.user.role.toUpperCase()})
           </div>
-
-          {/* Active Job Requisitions List */}
-          <div style={{
-            backgroundColor: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: '1rem',
-            padding: '1.5rem'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-                💼 Organization Job Postings ({jobsList.length})
-              </h3>
-              {authResponse && (
-                <button
-                  onClick={fetchJobsList}
-                  style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', borderRadius: '0.25rem', border: 'none', backgroundColor: '#3b82f6', color: 'white', cursor: 'pointer' }}
-                >
-                  Refresh
-                </button>
-              )}
-            </div>
-
-            {!authResponse ? (
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                Please sign up or log in on the right panel to view and manage your organization's job postings.
-              </p>
-            ) : jobsList.length === 0 ? (
-              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                No job postings created yet for <strong>{authResponse.organization.name}</strong>. Create one using the form on the right!
-              </p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-                {jobsList.map(job => (
-                  <div key={job.id} style={{
-                    padding: '1rem',
-                    borderRadius: '0.5rem',
-                    backgroundColor: 'rgba(0,0,0,0.3)',
-                    border: '1px solid rgba(255,255,255,0.06)'
-                  }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.35rem' }}>
-                      <h4 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>{job.title}</h4>
-                      <span style={{
-                        fontSize: '0.7rem',
-                        fontWeight: 700,
-                        padding: '0.15rem 0.4rem',
-                        borderRadius: '0.25rem',
-                        backgroundColor: job.status === 'published' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(234, 179, 8, 0.2)',
-                        color: job.status === 'published' ? '#34d399' : '#facc15'
-                      }}>
-                        {job.status.toUpperCase()}
-                      </span>
-                    </div>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
-                      {job.department || 'Engineering'} • {job.location || 'Remote'}
-                    </p>
-                    {job.required_skills && job.required_skills.length > 0 && (
-                      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
-                        {job.required_skills.map((skill: string, sIdx: number) => (
-                          <span key={sIdx} style={{
-                            fontSize: '0.7rem',
-                            padding: '0.1rem 0.4rem',
-                            borderRadius: '0.25rem',
-                            backgroundColor: 'rgba(99, 102, 241, 0.15)',
-                            color: '#818cf8',
-                            border: '1px solid rgba(99, 102, 241, 0.2)'
-                          }}>
-                            {skill}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+            Tenant ID: <code>{authResponse.organization.id.substring(0, 8)}...</code>
           </div>
         </div>
+      )}
 
-        {/* Right Column: Auth & Job Creation Panel */}
-        <div style={{
-          backgroundColor: 'var(--bg-card)',
-          border: '1px solid var(--border-color)',
-          borderRadius: '1rem',
-          padding: '1.5rem',
-          boxShadow: '0 15px 25px -5px rgba(0, 0, 0, 0.3)'
-        }}>
-          {/* Tab Switcher */}
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.25rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.75rem' }}>
-            <button
-              onClick={() => setActiveTab('signup')}
-              style={{
-                padding: '0.5rem 0.75rem',
-                borderRadius: '0.5rem',
-                border: 'none',
-                backgroundColor: activeTab === 'signup' ? 'var(--primary-accent)' : 'transparent',
-                color: 'white',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                cursor: 'pointer'
-              }}
-            >
-              Signup Tenant
-            </button>
-            <button
-              onClick={() => setActiveTab('login')}
-              style={{
-                padding: '0.5rem 0.75rem',
-                borderRadius: '0.5rem',
-                border: 'none',
-                backgroundColor: activeTab === 'login' ? 'var(--primary-accent)' : 'transparent',
-                color: 'white',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                cursor: 'pointer'
-              }}
-            >
-              Login
-            </button>
-            <button
-              onClick={() => setActiveTab('jobs')}
-              style={{
-                padding: '0.5rem 0.75rem',
-                borderRadius: '0.5rem',
-                border: 'none',
-                backgroundColor: activeTab === 'jobs' ? 'var(--primary-accent)' : 'transparent',
-                color: 'white',
-                fontWeight: 600,
-                fontSize: '0.85rem',
-                cursor: 'pointer'
-              }}
-            >
-              Create Job
-            </button>
-          </div>
-
-          {activeTab === 'signup' && (
-            <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Company Name</label>
-                <input
-                  type="text"
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
-                  required
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Admin Full Name</label>
-                <input
-                  type="text"
-                  value={adminName}
-                  onChange={(e) => setAdminName(e.target.value)}
-                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
-                  required
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
-                  required
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
-                  required
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading}
-                style={{ marginTop: '0.5rem', padding: '0.75rem', borderRadius: '0.5rem', border: 'none', background: 'var(--primary-gradient)', color: 'white', fontWeight: 700, cursor: 'pointer' }}
+      {/* Main Tab Panels */}
+      {activeTab === 'pipeline' && (
+        <div style={{ maxWidth: '1150px', margin: '0 auto' }}>
+          {/* Quick Apply Action Panel */}
+          {authResponse && (
+            <div style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '0.875rem', padding: '1.25rem', marginBottom: '1.5rem', textAlign: 'left', display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+              <span style={{ fontWeight: 600, fontSize: '0.9rem' }}>➕ Link Candidate to Job:</span>
+              <select
+                value={selectedCandidateId}
+                onChange={(e) => setSelectedCandidateId(e.target.value)}
+                style={{ padding: '0.5rem', borderRadius: '0.375rem', backgroundColor: 'rgba(0,0,0,0.4)', color: 'white', border: '1px solid var(--border-color)' }}
               >
+                <option value="">-- Select Candidate --</option>
+                {candidatesList.map(c => <option key={c.id} value={c.id}>{c.first_name} {c.last_name} ({c.email})</option>)}
+              </select>
+
+              <select
+                value={selectedJobId}
+                onChange={(e) => setSelectedJobId(e.target.value)}
+                style={{ padding: '0.5rem', borderRadius: '0.375rem', backgroundColor: 'rgba(0,0,0,0.4)', color: 'white', border: '1px solid var(--border-color)' }}
+              >
+                <option value="">-- Select Job Posting --</option>
+                {jobsList.map(j => <option key={j.id} value={j.id}>{j.title}</option>)}
+              </select>
+
+              <button
+                onClick={handleCreateApplication}
+                disabled={loading || !selectedJobId || !selectedCandidateId}
+                style={{ padding: '0.5rem 1rem', borderRadius: '0.375rem', border: 'none', background: 'var(--primary-gradient)', color: 'white', fontWeight: 700, cursor: 'pointer', opacity: (!selectedJobId || !selectedCandidateId) ? 0.5 : 1 }}
+              >
+                Submit Application (APPLIED)
+              </button>
+            </div>
+          )}
+
+          {/* Kanban Board Columns */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.875rem', textAlign: 'left' }}>
+            {pipelineStages.map(stage => {
+              const stageApps = applicationsList.filter(a => a.stage === stage)
+              const stageColors: Record<string, string> = {
+                applied: '#60a5fa',
+                screening: '#a855f7',
+                interview: '#facc15',
+                offer: '#fb923c',
+                hired: '#34d399',
+                rejected: '#f87171'
+              }
+              return (
+                <div key={stage} style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '0.75rem', padding: '0.875rem', minHeight: '320px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', paddingBottom: '0.5rem', borderBottom: '1px solid var(--border-color)' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: stageColors[stage] }}>{stage}</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: 700, backgroundColor: 'rgba(0,0,0,0.3)', padding: '0.1rem 0.4rem', borderRadius: '9999px' }}>{stageApps.length}</span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                    {stageApps.map(app => (
+                      <div key={app.id} style={{ backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '0.5rem', padding: '0.65rem' }}>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                          {app.candidate ? `${app.candidate.first_name} ${app.candidate.last_name}` : 'Candidate'}
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0.5rem' }}>
+                          {app.job_posting ? app.job_posting.title : 'Job Posting'}
+                        </div>
+                        
+                        {/* Stage Selector Dropdown */}
+                        <select
+                          value={app.stage}
+                          onChange={(e) => handleUpdateStage(app.id, e.target.value)}
+                          style={{ width: '100%', fontSize: '0.7rem', padding: '0.2rem', borderRadius: '0.25rem', backgroundColor: 'rgba(255,255,255,0.05)', color: 'white', border: '1px solid var(--border-color)' }}
+                        >
+                          {pipelineStages.map(s => <option key={s} value={s}>Move to {s}</option>)}
+                        </select>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'candidates' && (
+        <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'left', backgroundColor: 'var(--bg-card)', padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
+          <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem', fontWeight: 600 }}>Create Candidate Profile</h3>
+          <form onSubmit={handleCreateCandidate} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>First Name</label>
+                <input type="text" value={candFirstName} onChange={(e) => setCandFirstName(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Last Name</label>
+                <input type="text" value={candLastName} onChange={(e) => setCandLastName(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
+              </div>
+            </div>
+            <div>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Email</label>
+              <input type="email" value={candEmail} onChange={(e) => setCandEmail(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
+            </div>
+            <div>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Phone</label>
+              <input type="text" value={candPhone} onChange={(e) => setCandPhone(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Resume URL Reference</label>
+              <input type="text" value={candResumeUrl} onChange={(e) => setCandResumeUrl(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} />
+            </div>
+            <button type="submit" disabled={loading || !authResponse} style={{ marginTop: '0.5rem', padding: '0.65rem', borderRadius: '0.375rem', border: 'none', background: 'var(--primary-gradient)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
+              POST /api/v1/candidates
+            </button>
+          </form>
+        </div>
+      )}
+
+      {activeTab === 'jobs' && (
+        <div style={{ maxWidth: '600px', margin: '0 auto', textAlign: 'left', backgroundColor: 'var(--bg-card)', padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
+          <h3 style={{ marginBottom: '1rem', fontSize: '1.1rem', fontWeight: 600 }}>Create Job Posting</h3>
+          <form onSubmit={handleCreateJob} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+            <div>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Job Title</label>
+              <input type="text" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
+            </div>
+            <div>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Description</label>
+              <textarea value={jobDescription} onChange={(e) => setJobDescription(e.target.value)} rows={2} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', fontFamily: 'inherit' }} />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Department</label>
+                <input type="text" value={department} onChange={(e) => setDepartment(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Location</label>
+                <input type="text" value={location} onChange={(e) => setLocation(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} />
+              </div>
+            </div>
+            <div>
+              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Required Skills (comma separated)</label>
+              <input type="text" value={requiredSkillsStr} onChange={(e) => setRequiredSkillsStr(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} />
+            </div>
+            <button type="submit" disabled={loading || !authResponse} style={{ marginTop: '0.5rem', padding: '0.65rem', borderRadius: '0.375rem', border: 'none', background: 'var(--primary-gradient)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
+              POST /api/v1/jobs
+            </button>
+          </form>
+        </div>
+      )}
+
+      {(activeTab === 'signup' || activeTab === 'login') && (
+        <div style={{ maxWidth: '500px', margin: '0 auto', textAlign: 'left', backgroundColor: 'var(--bg-card)', padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
+          {activeTab === 'signup' ? (
+            <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+              <h3 style={{ marginBottom: '0.5rem', fontSize: '1.1rem', fontWeight: 600 }}>Create New Organization</h3>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Company Name</label>
+                <input type="text" value={companyName} onChange={(e) => setCompanyName(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Admin Full Name</label>
+                <input type="text" value={adminName} onChange={(e) => setAdminName(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Email</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Password</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
+              </div>
+              <button type="submit" disabled={loading} style={{ marginTop: '0.5rem', padding: '0.65rem', borderRadius: '0.375rem', border: 'none', background: 'var(--primary-gradient)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
                 {loading ? 'Processing...' : 'Create Organization & Admin'}
               </button>
             </form>
-          )}
-
-          {activeTab === 'login' && (
+          ) : (
             <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+              <h3 style={{ marginBottom: '0.5rem', fontSize: '1.1rem', fontWeight: 600 }}>Login</h3>
               <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Email</label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
-                  required
-                />
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Email</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
               </div>
               <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Password</label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
-                  required
-                />
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Password</label>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }} required />
               </div>
-              <button
-                type="submit"
-                disabled={loading}
-                style={{ marginTop: '0.5rem', padding: '0.75rem', borderRadius: '0.5rem', border: 'none', background: 'var(--primary-gradient)', color: 'white', fontWeight: 700, cursor: 'pointer' }}
-              >
+              <button type="submit" disabled={loading} style={{ marginTop: '0.5rem', padding: '0.65rem', borderRadius: '0.375rem', border: 'none', background: 'var(--primary-gradient)', color: 'white', fontWeight: 700, cursor: 'pointer' }}>
                 {loading ? 'Processing...' : 'Login'}
               </button>
             </form>
           )}
-
-          {activeTab === 'jobs' && (
-            <form onSubmit={handleCreateJob} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-              {!authResponse && (
-                <div style={{ padding: '0.5rem', borderRadius: '0.25rem', backgroundColor: 'rgba(234, 179, 8, 0.15)', color: '#facc15', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
-                  ⚠️ Please log in first to authenticate as Admin/Recruiter.
-                </div>
-              )}
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Job Title</label>
-                <input
-                  type="text"
-                  value={jobTitle}
-                  onChange={(e) => setJobTitle(e.target.value)}
-                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
-                  required
-                />
-              </div>
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Description</label>
-                <textarea
-                  value={jobDescription}
-                  onChange={(e) => setJobDescription(e.target.value)}
-                  rows={2}
-                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', fontFamily: 'inherit' }}
-                />
-              </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                <div>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Department</label>
-                  <input
-                    type="text"
-                    value={department}
-                    onChange={(e) => setDepartment(e.target.value)}
-                    style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Location</label>
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
-                  />
-                </div>
-              </div>
-              <div>
-                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Required Skills (comma separated)</label>
-                <input
-                  type="text"
-                  value={requiredSkillsStr}
-                  onChange={(e) => setRequiredSkillsStr(e.target.value)}
-                  placeholder="Python, FastAPI, PostgreSQL"
-                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={loading || !authResponse}
-                style={{ marginTop: '0.5rem', padding: '0.75rem', borderRadius: '0.5rem', border: 'none', background: 'var(--primary-gradient)', color: 'white', fontWeight: 700, cursor: 'pointer', opacity: (!authResponse || loading) ? 0.6 : 1 }}
-              >
-                {loading ? 'Publishing...' : 'POST /api/v1/jobs'}
-              </button>
-            </form>
-          )}
-
-          {/* Auth Error Display */}
-          {authError && (
-            <div style={{ marginTop: '1rem', padding: '0.75rem', borderRadius: '0.5rem', backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', fontSize: '0.85rem' }}>
-              ⚠️ {authError}
-            </div>
-          )}
-
-          {/* API Response Inspector */}
-          {demoResponse && (
-            <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
-              <span style={{ fontSize: '0.8rem', color: '#60a5fa', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>
-                Response [{demoResponse.endpoint}] - Status {demoResponse.status}:
-              </span>
-              <pre style={{
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                padding: '0.75rem',
-                borderRadius: '0.5rem',
-                fontSize: '0.75rem',
-                color: demoResponse.status === 201 || demoResponse.status === 200 ? '#34d399' : '#f87171',
-                overflowX: 'auto',
-                maxHeight: '180px'
-              }}>
-                {JSON.stringify(demoResponse.data, null, 2)}
-              </pre>
-            </div>
-          )}
         </div>
-      </div>
+      )}
+
+      {/* Error & Response Inspector */}
+      {authError && (
+        <div style={{ maxWidth: '600px', margin: '1.5rem auto 0', padding: '0.75rem', borderRadius: '0.5rem', backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', fontSize: '0.85rem', textAlign: 'left' }}>
+          ⚠️ {authError}
+        </div>
+      )}
+
+      {demoResponse && (
+        <div style={{ maxWidth: '900px', margin: '1.5rem auto 0', padding: '1rem', borderRadius: '0.75rem', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', textAlign: 'left' }}>
+          <span style={{ fontSize: '0.8rem', color: '#60a5fa', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>
+            API Response [{demoResponse.endpoint}] - Status {demoResponse.status}:
+          </span>
+          <pre style={{ backgroundColor: 'rgba(0,0,0,0.5)', padding: '0.75rem', borderRadius: '0.5rem', fontSize: '0.75rem', color: '#34d399', overflowX: 'auto', maxHeight: '180px' }}>
+            {JSON.stringify(demoResponse.data, null, 2)}
+          </pre>
+        </div>
+      )}
     </div>
   )
 }
