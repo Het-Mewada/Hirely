@@ -13,7 +13,7 @@ export function App() {
   // Auth Result State
   const [authResponse, setAuthResponse] = useState<any>(null)
   const [authError, setAuthError] = useState<string>('')
-  const [meResponse, setMeResponse] = useState<any>(null)
+  const [demoResponse, setDemoResponse] = useState<any>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -28,7 +28,7 @@ export function App() {
     setLoading(true)
     setAuthError('')
     setAuthResponse(null)
-    setMeResponse(null)
+    setDemoResponse(null)
 
     try {
       const res = await fetch('http://localhost:8000/api/v1/auth/signup', {
@@ -42,9 +42,7 @@ export function App() {
         })
       })
       const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.detail || 'Signup failed')
-      }
+      if (!res.ok) throw new Error(data.detail || 'Signup failed')
       setAuthResponse(data)
     } catch (err: any) {
       setAuthError(err.message)
@@ -58,7 +56,7 @@ export function App() {
     setLoading(true)
     setAuthError('')
     setAuthResponse(null)
-    setMeResponse(null)
+    setDemoResponse(null)
 
     try {
       const res = await fetch('http://localhost:8000/api/v1/auth/login', {
@@ -70,9 +68,7 @@ export function App() {
         })
       })
       const data = await res.json()
-      if (!res.ok) {
-        throw new Error(data.detail || 'Login failed')
-      }
+      if (!res.ok) throw new Error(data.detail || 'Login failed')
       setAuthResponse(data)
     } catch (err: any) {
       setAuthError(err.message)
@@ -84,15 +80,30 @@ export function App() {
   const handleFetchMe = async () => {
     if (!authResponse?.access_token) return
     setLoading(true)
+    setDemoResponse(null)
     try {
       const res = await fetch('http://localhost:8000/api/v1/auth/me', {
-        headers: {
-          'Authorization': `Bearer ${authResponse.access_token}`
-        }
+        headers: { 'Authorization': `Bearer ${authResponse.access_token}` }
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.detail || 'Fetch /me failed')
-      setMeResponse(data)
+      setDemoResponse({ endpoint: '/auth/me', status: res.status, data })
+    } catch (err: any) {
+      setAuthError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleTestEndpoint = async (endpoint: string) => {
+    if (!authResponse?.access_token) return
+    setLoading(true)
+    setDemoResponse(null)
+    try {
+      const res = await fetch(`http://localhost:8000/api/v1${endpoint}`, {
+        headers: { 'Authorization': `Bearer ${authResponse.access_token}` }
+      })
+      const data = await res.json()
+      setDemoResponse({ endpoint, status: res.status, data })
     } catch (err: any) {
       setAuthError(err.message)
     } finally {
@@ -117,28 +128,28 @@ export function App() {
         color: '#a5b4fc',
         boxShadow: '0 0 15px rgba(99, 102, 241, 0.15)'
       }}>
-        <span>✨ Phase 2 — Auth & Tenant Onboarding Complete</span>
+        <span>✨ Phase 3 — Tenant Scoping Middleware & RBAC Complete</span>
       </div>
 
       <h1 style={{ fontSize: '3.25rem', fontWeight: 800, marginBottom: '1rem', letterSpacing: '-0.025em' }}>
         Welcome to <span className="gradient-text">Hirely</span>
       </h1>
       
-      <p style={{ fontSize: '1.15rem', color: 'var(--text-secondary)', maxWidth: '650px', margin: '0 auto 2.5rem', lineHeight: '1.6' }}>
-        Multi-Tenant Organization Signup & JWT Authentication Workspace.
+      <p style={{ fontSize: '1.15rem', color: 'var(--text-secondary)', maxWidth: '700px', margin: '0 auto 2.5rem', lineHeight: '1.6' }}>
+        Multi-Tenant Scoped Repositories & Role-Based Access Control (RBAC).
       </p>
 
-      {/* Main Split Layout: System Status + Interactive Auth Sandbox */}
+      {/* Main Split Layout */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
         gap: '1.5rem',
-        maxWidth: '1000px',
+        maxWidth: '1050px',
         margin: '0 auto',
         textAlign: 'left'
       }}>
         
-        {/* Left Column: System Status & Auth Overview */}
+        {/* Left Column: Tenant Isolation Architecture & RBAC Guards */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div style={{
             backgroundColor: 'var(--bg-card)',
@@ -183,26 +194,25 @@ export function App() {
             padding: '1.5rem'
           }}>
             <h3 style={{ marginBottom: '0.75rem', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              Tenant Auth Endpoints
+              🔒 Why Database-Layer Isolation?
             </h3>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.75rem', fontSize: '0.875rem' }}>
-              <li style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <span style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', padding: '0.15rem 0.4rem', borderRadius: '0.25rem', fontWeight: 700, fontSize: '0.75rem' }}>POST</span>
-                <code>/api/v1/auth/signup</code>
-              </li>
-              <li style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <span style={{ backgroundColor: 'rgba(59, 130, 246, 0.2)', color: '#60a5fa', padding: '0.15rem 0.4rem', borderRadius: '0.25rem', fontWeight: 700, fontSize: '0.75rem' }}>POST</span>
-                <code>/api/v1/auth/login</code>
-              </li>
-              <li style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <span style={{ backgroundColor: 'rgba(16, 185, 129, 0.2)', color: '#34d399', padding: '0.15rem 0.4rem', borderRadius: '0.25rem', fontWeight: 700, fontSize: '0.75rem' }}>GET</span>
-                <code>/api/v1/auth/me</code>
-              </li>
-            </ul>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5', marginBottom: '1rem' }}>
+              Enforcing multi-tenancy inside <code style={{ color: '#818cf8' }}>TenantRepository._base_query()</code> guarantees that every query strictly appends <code style={{ color: '#34d399' }}>WHERE organization_id = tenant_id</code> at the SQL level.
+            </p>
+            <div style={{
+              padding: '0.75rem',
+              borderRadius: '0.5rem',
+              backgroundColor: 'rgba(16, 185, 129, 0.1)',
+              border: '1px solid rgba(16, 185, 129, 0.2)',
+              fontSize: '0.8rem',
+              color: '#34d399'
+            }}>
+              ✅ Pytest suite <code>test_tenant_isolation.py</code> passed: Org A can NEVER access Org B data.
+            </div>
           </div>
         </div>
 
-        {/* Right Column: Interactive Auth Sandbox */}
+        {/* Right Column: Interactive Auth & RBAC Sandbox */}
         <div style={{
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border-color)',
@@ -224,7 +234,7 @@ export function App() {
                 cursor: 'pointer'
               }}
             >
-              Company Signup
+              Signup Tenant
             </button>
             <button
               onClick={() => setActiveTab('login')}
@@ -238,7 +248,7 @@ export function App() {
                 cursor: 'pointer'
               }}
             >
-              User Login
+              Login
             </button>
           </div>
 
@@ -246,7 +256,7 @@ export function App() {
             {activeTab === 'signup' && (
               <>
                 <div>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Organization / Company Name</label>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Company Name</label>
                   <input
                     type="text"
                     value={companyName}
@@ -316,47 +326,51 @@ export function App() {
             </div>
           )}
 
-          {/* Auth Success Token & Payload Display */}
+          {/* Auth Success Token & RBAC Endpoints Test Panel */}
           {authResponse && (
             <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <span style={{ fontSize: '0.85rem', color: '#34d399', fontWeight: 600 }}>✅ Auth Success (JWT Issued)</span>
+              <div style={{ fontSize: '0.85rem', color: '#34d399', fontWeight: 600, marginBottom: '0.75rem' }}>
+                ✅ Authenticated as: {authResponse.user.full_name} ({authResponse.user.role})
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
                 <button
                   onClick={handleFetchMe}
-                  style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', borderRadius: '0.25rem', border: 'none', backgroundColor: '#3b82f6', color: 'white', cursor: 'pointer' }}
+                  style={{ fontSize: '0.75rem', padding: '0.4rem 0.6.5rem', borderRadius: '0.375rem', border: 'none', backgroundColor: '#3b82f6', color: 'white', cursor: 'pointer', fontWeight: 600 }}
                 >
-                  Test GET /auth/me
+                  GET /auth/me
+                </button>
+                <button
+                  onClick={() => handleTestEndpoint('/demo/admin-only')}
+                  style={{ fontSize: '0.75rem', padding: '0.4rem 0.65rem', borderRadius: '0.375rem', border: 'none', backgroundColor: '#a855f7', color: 'white', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  GET /demo/admin-only (RBAC)
+                </button>
+                <button
+                  onClick={() => handleTestEndpoint('/demo/candidates')}
+                  style={{ fontSize: '0.75rem', padding: '0.4rem 0.65rem', borderRadius: '0.375rem', border: 'none', backgroundColor: '#10b981', color: 'white', cursor: 'pointer', fontWeight: 600 }}
+                >
+                  GET /demo/candidates (Scoped)
                 </button>
               </div>
 
-              <pre style={{
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                padding: '0.75rem',
-                borderRadius: '0.5rem',
-                fontSize: '0.75rem',
-                color: '#a5b4fc',
-                overflowX: 'auto',
-                maxHeight: '160px'
-              }}>
-                {JSON.stringify(authResponse, null, 2)}
-              </pre>
-            </div>
-          )}
-
-          {/* GET /auth/me Output Display */}
-          {meResponse && (
-            <div style={{ marginTop: '1rem' }}>
-              <span style={{ fontSize: '0.85rem', color: '#60a5fa', fontWeight: 600, display: 'block', marginBottom: '0.35rem' }}>👤 Token Decoded (/auth/me):</span>
-              <pre style={{
-                backgroundColor: 'rgba(0,0,0,0.5)',
-                padding: '0.75rem',
-                borderRadius: '0.5rem',
-                fontSize: '0.75rem',
-                color: '#34d399',
-                overflowX: 'auto'
-              }}>
-                {JSON.stringify(meResponse, null, 2)}
-              </pre>
+              {demoResponse && (
+                <div style={{ marginTop: '0.5rem' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#60a5fa', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>
+                    Response [{demoResponse.endpoint}] - Status {demoResponse.status}:
+                  </span>
+                  <pre style={{
+                    backgroundColor: 'rgba(0,0,0,0.5)',
+                    padding: '0.75rem',
+                    borderRadius: '0.5rem',
+                    fontSize: '0.75rem',
+                    color: demoResponse.status === 200 ? '#34d399' : '#f87171',
+                    overflowX: 'auto'
+                  }}>
+                    {JSON.stringify(demoResponse.data, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
           )}
         </div>

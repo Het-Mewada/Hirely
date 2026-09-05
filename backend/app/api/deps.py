@@ -2,9 +2,10 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from uuid import UUID
+from typing import List, Callable
 from app.db.session import get_db
 from app.core.security import decode_access_token
-from app.models.user import User
+from app.models.user import User, UserRole
 
 reusable_oauth2 = OAuth2PasswordBearer(
     tokenUrl="/api/v1/auth/login"
@@ -49,3 +50,18 @@ def get_current_user(
         )
         
     return user
+
+def require_role(*allowed_roles: UserRole) -> Callable:
+    """
+    Role-Based Access Control (RBAC) Dependency Factory.
+    Enforces that the current authenticated user possesses one of the allowed_roles.
+    Returns HTTP 403 Forbidden if user role is unauthorized.
+    """
+    def role_checker(current_user: User = Depends(get_current_user)) -> User:
+        if current_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Operation not permitted. Required role: {[r.value for r in allowed_roles]}, but your role is '{current_user.role.value}'"
+            )
+        return current_user
+    return role_checker
