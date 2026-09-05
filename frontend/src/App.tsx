@@ -4,15 +4,23 @@ export function App() {
   const [apiStatus, setApiStatus] = useState<string>('Checking...')
   
   // Auth Form State
-  const [activeTab, setActiveTab] = useState<'signup' | 'login'>('signup')
+  const [activeTab, setActiveTab] = useState<'signup' | 'login' | 'jobs'>('signup')
   const [companyName, setCompanyName] = useState('Acme Corp')
   const [adminName, setAdminName] = useState('Alice Admin')
   const [email, setEmail] = useState('alice@acme.com')
   const [password, setPassword] = useState('Secret123!')
   
-  // Auth Result State
+  // Job Form State
+  const [jobTitle, setJobTitle] = useState('Senior Python Engineer')
+  const [jobDescription, setJobDescription] = useState('Design and build FastAPI multi-tenant SaaS application.')
+  const [department, setDepartment] = useState('Engineering')
+  const [location, setLocation] = useState('Remote')
+  const [requiredSkillsStr, setRequiredSkillsStr] = useState('Python, FastAPI, PostgreSQL, Redis, Docker')
+
+  // Data State
   const [authResponse, setAuthResponse] = useState<any>(null)
   const [authError, setAuthError] = useState<string>('')
+  const [jobsList, setJobsList] = useState<any[]>([])
   const [demoResponse, setDemoResponse] = useState<any>(null)
   const [loading, setLoading] = useState(false)
 
@@ -44,6 +52,7 @@ export function App() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || 'Signup failed')
       setAuthResponse(data)
+      setActiveTab('jobs')
     } catch (err: any) {
       setAuthError(err.message)
     } finally {
@@ -70,6 +79,7 @@ export function App() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || 'Login failed')
       setAuthResponse(data)
+      setActiveTab('jobs')
     } catch (err: any) {
       setAuthError(err.message)
     } finally {
@@ -77,16 +87,38 @@ export function App() {
     }
   }
 
-  const handleFetchMe = async () => {
+  const handleCreateJob = async (e: React.FormEvent) => {
+    e.preventDefault()
     if (!authResponse?.access_token) return
     setLoading(true)
-    setDemoResponse(null)
+    setAuthError('')
+
+    const skillsArray = requiredSkillsStr
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean)
+
     try {
-      const res = await fetch('http://localhost:8000/api/v1/auth/me', {
-        headers: { 'Authorization': `Bearer ${authResponse.access_token}` }
+      const res = await fetch('http://localhost:8000/api/v1/jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authResponse.access_token}`
+        },
+        body: JSON.stringify({
+          title: jobTitle,
+          description: jobDescription,
+          department: department,
+          location: location,
+          status: 'published',
+          required_skills: skillsArray
+        })
       })
       const data = await res.json()
-      setDemoResponse({ endpoint: '/auth/me', status: res.status, data })
+      if (!res.ok) throw new Error(data.detail || 'Failed to create job posting')
+      
+      setDemoResponse({ endpoint: 'POST /api/v1/jobs', status: res.status, data })
+      fetchJobsList()
     } catch (err: any) {
       setAuthError(err.message)
     } finally {
@@ -94,22 +126,26 @@ export function App() {
     }
   }
 
-  const handleTestEndpoint = async (endpoint: string) => {
+  const fetchJobsList = async () => {
     if (!authResponse?.access_token) return
-    setLoading(true)
-    setDemoResponse(null)
     try {
-      const res = await fetch(`http://localhost:8000/api/v1${endpoint}`, {
+      const res = await fetch('http://localhost:8000/api/v1/jobs', {
         headers: { 'Authorization': `Bearer ${authResponse.access_token}` }
       })
       const data = await res.json()
-      setDemoResponse({ endpoint, status: res.status, data })
-    } catch (err: any) {
-      setAuthError(err.message)
-    } finally {
-      setLoading(false)
+      if (res.ok) {
+        setJobsList(data)
+      }
+    } catch (err) {
+      console.error(err)
     }
   }
+
+  useEffect(() => {
+    if (authResponse?.access_token) {
+      fetchJobsList()
+    }
+  }, [authResponse])
 
   return (
     <div className="container" style={{ textAlign: 'center', paddingTop: '3rem', paddingBottom: '4rem' }}>
@@ -128,7 +164,7 @@ export function App() {
         color: '#a5b4fc',
         boxShadow: '0 0 15px rgba(99, 102, 241, 0.15)'
       }}>
-        <span>✨ Phase 3 — Tenant Scoping Middleware & RBAC Complete</span>
+        <span>✨ Phase 4 — Job Posting CRUD Complete</span>
       </div>
 
       <h1 style={{ fontSize: '3.25rem', fontWeight: 800, marginBottom: '1rem', letterSpacing: '-0.025em' }}>
@@ -136,7 +172,7 @@ export function App() {
       </h1>
       
       <p style={{ fontSize: '1.15rem', color: 'var(--text-secondary)', maxWidth: '700px', margin: '0 auto 2.5rem', lineHeight: '1.6' }}>
-        Multi-Tenant Scoped Repositories & Role-Based Access Control (RBAC).
+        Job Requisition Management with Required Skills Tagging & Role-Gated Access.
       </p>
 
       {/* Main Split Layout */}
@@ -149,7 +185,7 @@ export function App() {
         textAlign: 'left'
       }}>
         
-        {/* Left Column: Tenant Isolation Architecture & RBAC Guards */}
+        {/* Left Column: System Overview & Active Tenant Jobs */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
           <div style={{
             backgroundColor: 'var(--bg-card)',
@@ -187,32 +223,84 @@ export function App() {
             </div>
           </div>
 
+          {/* Active Job Requisitions List */}
           <div style={{
             backgroundColor: 'var(--bg-card)',
             border: '1px solid var(--border-color)',
             borderRadius: '1rem',
             padding: '1.5rem'
           }}>
-            <h3 style={{ marginBottom: '0.75rem', fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
-              🔒 Why Database-Layer Isolation?
-            </h3>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.5', marginBottom: '1rem' }}>
-              Enforcing multi-tenancy inside <code style={{ color: '#818cf8' }}>TenantRepository._base_query()</code> guarantees that every query strictly appends <code style={{ color: '#34d399' }}>WHERE organization_id = tenant_id</code> at the SQL level.
-            </p>
-            <div style={{
-              padding: '0.75rem',
-              borderRadius: '0.5rem',
-              backgroundColor: 'rgba(16, 185, 129, 0.1)',
-              border: '1px solid rgba(16, 185, 129, 0.2)',
-              fontSize: '0.8rem',
-              color: '#34d399'
-            }}>
-              ✅ Pytest suite <code>test_tenant_isolation.py</code> passed: Org A can NEVER access Org B data.
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-primary)' }}>
+                💼 Organization Job Postings ({jobsList.length})
+              </h3>
+              {authResponse && (
+                <button
+                  onClick={fetchJobsList}
+                  style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', borderRadius: '0.25rem', border: 'none', backgroundColor: '#3b82f6', color: 'white', cursor: 'pointer' }}
+                >
+                  Refresh
+                </button>
+              )}
             </div>
+
+            {!authResponse ? (
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                Please sign up or log in on the right panel to view and manage your organization's job postings.
+              </p>
+            ) : jobsList.length === 0 ? (
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                No job postings created yet for <strong>{authResponse.organization.name}</strong>. Create one using the form on the right!
+              </p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+                {jobsList.map(job => (
+                  <div key={job.id} style={{
+                    padding: '1rem',
+                    borderRadius: '0.5rem',
+                    backgroundColor: 'rgba(0,0,0,0.3)',
+                    border: '1px solid rgba(255,255,255,0.06)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.35rem' }}>
+                      <h4 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--text-primary)' }}>{job.title}</h4>
+                      <span style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 700,
+                        padding: '0.15rem 0.4rem',
+                        borderRadius: '0.25rem',
+                        backgroundColor: job.status === 'published' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(234, 179, 8, 0.2)',
+                        color: job.status === 'published' ? '#34d399' : '#facc15'
+                      }}>
+                        {job.status.toUpperCase()}
+                      </span>
+                    </div>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
+                      {job.department || 'Engineering'} • {job.location || 'Remote'}
+                    </p>
+                    {job.required_skills && job.required_skills.length > 0 && (
+                      <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
+                        {job.required_skills.map((skill: string, sIdx: number) => (
+                          <span key={sIdx} style={{
+                            fontSize: '0.7rem',
+                            padding: '0.1rem 0.4rem',
+                            borderRadius: '0.25rem',
+                            backgroundColor: 'rgba(99, 102, 241, 0.15)',
+                            color: '#818cf8',
+                            border: '1px solid rgba(99, 102, 241, 0.2)'
+                          }}>
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Right Column: Interactive Auth & RBAC Sandbox */}
+        {/* Right Column: Auth & Job Creation Panel */}
         <div style={{
           backgroundColor: 'var(--bg-card)',
           border: '1px solid var(--border-color)',
@@ -225,12 +313,13 @@ export function App() {
             <button
               onClick={() => setActiveTab('signup')}
               style={{
-                padding: '0.5rem 1rem',
+                padding: '0.5rem 0.75rem',
                 borderRadius: '0.5rem',
                 border: 'none',
                 backgroundColor: activeTab === 'signup' ? 'var(--primary-accent)' : 'transparent',
                 color: 'white',
                 fontWeight: 600,
+                fontSize: '0.85rem',
                 cursor: 'pointer'
               }}
             >
@@ -239,85 +328,184 @@ export function App() {
             <button
               onClick={() => setActiveTab('login')}
               style={{
-                padding: '0.5rem 1rem',
+                padding: '0.5rem 0.75rem',
                 borderRadius: '0.5rem',
                 border: 'none',
                 backgroundColor: activeTab === 'login' ? 'var(--primary-accent)' : 'transparent',
                 color: 'white',
                 fontWeight: 600,
+                fontSize: '0.85rem',
                 cursor: 'pointer'
               }}
             >
               Login
             </button>
-          </div>
-
-          <form onSubmit={activeTab === 'signup' ? handleSignup : handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {activeTab === 'signup' && (
-              <>
-                <div>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Company Name</label>
-                  <input
-                    type="text"
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
-                    required
-                  />
-                </div>
-                <div>
-                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Admin Full Name</label>
-                  <input
-                    type="text"
-                    value={adminName}
-                    onChange={(e) => setAdminName(e.target.value)}
-                    style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
-                    required
-                  />
-                </div>
-              </>
-            )}
-
-            <div>
-              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
-                required
-              />
-            </div>
-
-            <div>
-              <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Password</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
-                required
-              />
-            </div>
-
             <button
-              type="submit"
-              disabled={loading}
+              onClick={() => setActiveTab('jobs')}
               style={{
-                marginTop: '0.5rem',
-                padding: '0.75rem',
+                padding: '0.5rem 0.75rem',
                 borderRadius: '0.5rem',
                 border: 'none',
-                background: 'var(--primary-gradient)',
+                backgroundColor: activeTab === 'jobs' ? 'var(--primary-accent)' : 'transparent',
                 color: 'white',
-                fontWeight: 700,
-                cursor: 'pointer',
-                opacity: loading ? 0.7 : 1
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                cursor: 'pointer'
               }}
             >
-              {loading ? 'Processing...' : activeTab === 'signup' ? 'Create Organization & Admin' : 'Login'}
+              Create Job
             </button>
-          </form>
+          </div>
+
+          {activeTab === 'signup' && (
+            <form onSubmit={handleSignup} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Company Name</label>
+                <input
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
+                  required
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Admin Full Name</label>
+                <input
+                  type="text"
+                  value={adminName}
+                  onChange={(e) => setAdminName(e.target.value)}
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
+                  required
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
+                  required
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                style={{ marginTop: '0.5rem', padding: '0.75rem', borderRadius: '0.5rem', border: 'none', background: 'var(--primary-gradient)', color: 'white', fontWeight: 700, cursor: 'pointer' }}
+              >
+                {loading ? 'Processing...' : 'Create Organization & Admin'}
+              </button>
+            </form>
+          )}
+
+          {activeTab === 'login' && (
+            <form onSubmit={handleLogin} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
+                  required
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Password</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading}
+                style={{ marginTop: '0.5rem', padding: '0.75rem', borderRadius: '0.5rem', border: 'none', background: 'var(--primary-gradient)', color: 'white', fontWeight: 700, cursor: 'pointer' }}
+              >
+                {loading ? 'Processing...' : 'Login'}
+              </button>
+            </form>
+          )}
+
+          {activeTab === 'jobs' && (
+            <form onSubmit={handleCreateJob} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
+              {!authResponse && (
+                <div style={{ padding: '0.5rem', borderRadius: '0.25rem', backgroundColor: 'rgba(234, 179, 8, 0.15)', color: '#facc15', fontSize: '0.8rem', marginBottom: '0.5rem' }}>
+                  ⚠️ Please log in first to authenticate as Admin/Recruiter.
+                </div>
+              )}
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Job Title</label>
+                <input
+                  type="text"
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
+                  required
+                />
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Description</label>
+                <textarea
+                  value={jobDescription}
+                  onChange={(e) => setJobDescription(e.target.value)}
+                  rows={2}
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white', fontFamily: 'inherit' }}
+                />
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                <div>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Department</label>
+                  <input
+                    type="text"
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Location</label>
+                  <input
+                    type="text"
+                    value={location}
+                    onChange={(e) => setLocation(e.target.value)}
+                    style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
+                  />
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.25rem' }}>Required Skills (comma separated)</label>
+                <input
+                  type="text"
+                  value={requiredSkillsStr}
+                  onChange={(e) => setRequiredSkillsStr(e.target.value)}
+                  placeholder="Python, FastAPI, PostgreSQL"
+                  style={{ width: '100%', padding: '0.6rem', borderRadius: '0.5rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.3)', color: 'white' }}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading || !authResponse}
+                style={{ marginTop: '0.5rem', padding: '0.75rem', borderRadius: '0.5rem', border: 'none', background: 'var(--primary-gradient)', color: 'white', fontWeight: 700, cursor: 'pointer', opacity: (!authResponse || loading) ? 0.6 : 1 }}
+              >
+                {loading ? 'Publishing...' : 'POST /api/v1/jobs'}
+              </button>
+            </form>
+          )}
 
           {/* Auth Error Display */}
           {authError && (
@@ -326,51 +514,23 @@ export function App() {
             </div>
           )}
 
-          {/* Auth Success Token & RBAC Endpoints Test Panel */}
-          {authResponse && (
+          {/* API Response Inspector */}
+          {demoResponse && (
             <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
-              <div style={{ fontSize: '0.85rem', color: '#34d399', fontWeight: 600, marginBottom: '0.75rem' }}>
-                ✅ Authenticated as: {authResponse.user.full_name} ({authResponse.user.role})
-              </div>
-
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
-                <button
-                  onClick={handleFetchMe}
-                  style={{ fontSize: '0.75rem', padding: '0.4rem 0.6.5rem', borderRadius: '0.375rem', border: 'none', backgroundColor: '#3b82f6', color: 'white', cursor: 'pointer', fontWeight: 600 }}
-                >
-                  GET /auth/me
-                </button>
-                <button
-                  onClick={() => handleTestEndpoint('/demo/admin-only')}
-                  style={{ fontSize: '0.75rem', padding: '0.4rem 0.65rem', borderRadius: '0.375rem', border: 'none', backgroundColor: '#a855f7', color: 'white', cursor: 'pointer', fontWeight: 600 }}
-                >
-                  GET /demo/admin-only (RBAC)
-                </button>
-                <button
-                  onClick={() => handleTestEndpoint('/demo/candidates')}
-                  style={{ fontSize: '0.75rem', padding: '0.4rem 0.65rem', borderRadius: '0.375rem', border: 'none', backgroundColor: '#10b981', color: 'white', cursor: 'pointer', fontWeight: 600 }}
-                >
-                  GET /demo/candidates (Scoped)
-                </button>
-              </div>
-
-              {demoResponse && (
-                <div style={{ marginTop: '0.5rem' }}>
-                  <span style={{ fontSize: '0.8rem', color: '#60a5fa', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>
-                    Response [{demoResponse.endpoint}] - Status {demoResponse.status}:
-                  </span>
-                  <pre style={{
-                    backgroundColor: 'rgba(0,0,0,0.5)',
-                    padding: '0.75rem',
-                    borderRadius: '0.5rem',
-                    fontSize: '0.75rem',
-                    color: demoResponse.status === 200 ? '#34d399' : '#f87171',
-                    overflowX: 'auto'
-                  }}>
-                    {JSON.stringify(demoResponse.data, null, 2)}
-                  </pre>
-                </div>
-              )}
+              <span style={{ fontSize: '0.8rem', color: '#60a5fa', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>
+                Response [{demoResponse.endpoint}] - Status {demoResponse.status}:
+              </span>
+              <pre style={{
+                backgroundColor: 'rgba(0,0,0,0.5)',
+                padding: '0.75rem',
+                borderRadius: '0.5rem',
+                fontSize: '0.75rem',
+                color: demoResponse.status === 201 || demoResponse.status === 200 ? '#34d399' : '#f87171',
+                overflowX: 'auto',
+                maxHeight: '180px'
+              }}>
+                {JSON.stringify(demoResponse.data, null, 2)}
+              </pre>
             </div>
           )}
         </div>
