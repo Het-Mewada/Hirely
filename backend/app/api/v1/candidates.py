@@ -13,6 +13,7 @@ from app.repositories.base import TenantRepository
 from app.schemas.candidate import CandidateCreate, CandidateUpdate, CandidateOut
 from app.services.storage import StorageService
 from app.services.parser import ResumeParserService
+from app.services.extractor import ResumeExtractorService
 
 router = APIRouter(prefix="/candidates", tags=["Candidates"])
 
@@ -52,7 +53,8 @@ async def upload_candidate_resume(
     Upload a resume file (PDF, DOCX, TXT) for a candidate.
     Stored per-tenant under uploads/{organization_id}/resumes/.
     Extracts raw text (Candidate.resume_text) and flags scanned PDFs for manual review.
-    Updates Candidate.resume_url field and logs audit event.
+    Uses spaCy PhraseMatcher & NER to extract skills, experience years, and education.
+    Updates Candidate fields and logs audit event.
     """
     repo = TenantRepository(Candidate, db, current_user.organization_id)
     candidate = repo.get(candidate_id)
@@ -70,18 +72,25 @@ async def upload_candidate_resume(
         content=content
     )
 
-    # Extract text from uploaded resume PDF/TXT
+    # Extract text from uploaded resume PDF/DOCX/TXT
     extracted_text, needs_manual_review = ResumeParserService.extract_text_from_file(
         filename=file.filename,
         content=content
     )
 
-    # Update candidate resume_url and resume_text
+    # Extract structured entities via spaCy PhraseMatcher & NER
+    parsed = ResumeExtractorService.extract_entities(extracted_text)
+
+    # Update candidate record with resume_url, resume_text, and parsed structured fields
     updated_candidate = repo.update(
         candidate_id,
         {
             "resume_url": relative_url,
-            "resume_text": extracted_text
+            "resume_text": extracted_text,
+            "parsed_skills": parsed.get("skills", []),
+            "estimated_experience_years": parsed.get("estimated_experience_years", 0.0),
+            "parsed_education": parsed.get("education", []),
+            "parsed_entities": parsed.get("parsed_entities", {})
         }
     )
 
@@ -95,7 +104,8 @@ async def upload_candidate_resume(
         details={
             "filename": file.filename,
             "size_bytes": len(content),
-            "text_length": len(extracted_text),
+            "skills_count": len(parsed.get("skills", [])),
+            "estimated_experience_years": parsed.get("estimated_experience_years", 0.0),
             "needs_manual_review": needs_manual_review
         }
     )
@@ -103,6 +113,36 @@ async def upload_candidate_resume(
     db.commit()
 
     return CandidateOut.model_validate(updated_candidate)
+
+@router.post("/{candidate_id}/extract-entities", response_model=CandidateOut)
+def extract_candidate_entities(
+    candidate_id: UUID,
+    current_user: User = Depends(require_role(UserRole.ADMIN, UserRole.RECRUITER)),
+    db: Session = Depends(get_db)
+):
+    """
+    Manually trigger spaCy entity extraction on a candidate's existing resume_text.
+    Role-gated: ADMIN and RECRUITER.
+    """
+    repo = TenantRepository(Candidate, db, current_user.organization_id)
+    candidate = repo.get(candidate_id)
+    if not candidate or not candidate.resume_text:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Candidate ID '{candidate_id}' does not have any resume text to extract."
+        )
+
+    parsed = ResumeExtractorService.extract_entities(candidate.resume_text)
+    updated = repo.update(
+        candidate_id,
+        {
+            "parsed_skills": parsed.get("skills", []),
+            "estimated_experience_years": parsed.get("estimated_experience_years", 0.0),
+            "parsed_education": parsed.get("education", []),
+            "parsed_entities": parsed.get("parsed_entities", {})
+        }
+    )
+    return CandidateOut.model_validate(updated)
 
 @router.get("/{candidate_id}/resume")
 def download_candidate_resume(

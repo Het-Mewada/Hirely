@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, Text, ForeignKey
+from sqlalchemy import Column, String, Text, Float, JSON, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db.base_class import Base, TimestampMixin
@@ -16,6 +16,13 @@ class Candidate(Base, TimestampMixin):
     phone = Column(String(50), nullable=True)
     resume_url = Column(String(500), nullable=True)
     resume_text = Column(Text, nullable=True)
+
+    # spaCy Parsed Structured Data
+    parsed_skills = Column(JSON, nullable=True)
+    estimated_experience_years = Column(Float, nullable=True)
+    parsed_education = Column(JSON, nullable=True)
+    parsed_entities = Column(JSON, nullable=True)
+
 
 
     # Relationships

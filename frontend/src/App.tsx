@@ -273,7 +273,7 @@ export function App() {
           borderRadius: '50%',
           backgroundColor: apiStatus === 'healthy' || apiStatus === 'Connected' ? '#10b981' : '#ef4444'
         }} />
-        <span>✨ Phase 7 — PDF Text Extraction Complete ({apiStatus})</span>
+        <span>✨ Phase 8 — spaCy NER Skill Extraction Complete ({apiStatus})</span>
       </div>
 
       <h1 style={{ fontSize: '3rem', fontWeight: 800, marginBottom: '0.75rem', letterSpacing: '-0.025em' }}>
@@ -281,7 +281,7 @@ export function App() {
       </h1>
       
       <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', maxWidth: '750px', margin: '0 auto 2rem', lineHeight: '1.5' }}>
-        Automated Resume PDF Text Extraction & Scanned Document Flagging.
+        spaCy NLP Entity Extraction, Skills Taxonomy & Experience Estimation.
       </p>
 
       {/* Navigation Bar */}
@@ -387,7 +387,32 @@ export function App() {
                 {candidatesList.map(cand => (
                   <div key={cand.id} style={{ padding: '0.875rem', borderRadius: '0.5rem', backgroundColor: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.06)' }}>
                     <div style={{ fontWeight: 600, fontSize: '0.95rem', color: 'var(--text-primary)' }}>{cand.first_name} {cand.last_name}</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.15rem 0 0.5rem' }}>{cand.email} {cand.phone ? `• ${cand.phone}` : ''}</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.15rem 0 0.5rem' }}>
+                      {cand.email} {cand.phone ? `• ${cand.phone}` : ''}
+                      {cand.estimated_experience_years !== null && cand.estimated_experience_years !== undefined && cand.estimated_experience_years > 0 && (
+                        <span style={{ marginLeft: '0.5rem', padding: '0.15rem 0.4rem', borderRadius: '0.25rem', backgroundColor: 'rgba(59, 130, 246, 0.15)', color: '#93c5fd', fontSize: '0.75rem', fontWeight: 600 }}>
+                          ⏳ {cand.estimated_experience_years} Yrs Exp
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Extracted Skills Badges */}
+                    {cand.parsed_skills && cand.parsed_skills.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', margin: '0.35rem 0 0.5rem' }}>
+                        {cand.parsed_skills.map((skill: string, idx: number) => (
+                          <span key={idx} style={{ padding: '0.15rem 0.45rem', borderRadius: '0.25rem', backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid rgba(16, 185, 129, 0.3)', color: '#6ee7b7', fontSize: '0.7rem', fontWeight: 500 }}>
+                            🔷 {skill}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Extracted Education */}
+                    {cand.parsed_education && cand.parsed_education.length > 0 && (
+                      <div style={{ fontSize: '0.75rem', color: '#cbd5e1', marginBottom: '0.4rem', textAlign: 'left' }}>
+                        🎓 <strong>Education:</strong> {cand.parsed_education.join(' • ')}
+                      </div>
+                    )}
                     
                     {cand.resume_url ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.35rem' }}>
