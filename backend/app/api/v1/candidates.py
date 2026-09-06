@@ -12,6 +12,7 @@ from app.models.audit_log import AuditLog
 from app.repositories.base import TenantRepository
 from app.schemas.candidate import CandidateCreate, CandidateUpdate, CandidateOut
 from app.services.storage import StorageService
+from app.services.parser import ResumeParserService
 
 router = APIRouter(prefix="/candidates", tags=["Candidates"])
 
@@ -50,6 +51,7 @@ async def upload_candidate_resume(
     """
     Upload a resume file (PDF, DOCX, TXT) for a candidate.
     Stored per-tenant under uploads/{organization_id}/resumes/.
+    Extracts raw text (Candidate.resume_text) and flags scanned PDFs for manual review.
     Updates Candidate.resume_url field and logs audit event.
     """
     repo = TenantRepository(Candidate, db, current_user.organization_id)
@@ -68,8 +70,20 @@ async def upload_candidate_resume(
         content=content
     )
 
-    # Update candidate resume_url
-    updated_candidate = repo.update(candidate_id, {"resume_url": relative_url})
+    # Extract text from uploaded resume PDF/TXT
+    extracted_text, needs_manual_review = ResumeParserService.extract_text_from_file(
+        filename=file.filename,
+        content=content
+    )
+
+    # Update candidate resume_url and resume_text
+    updated_candidate = repo.update(
+        candidate_id,
+        {
+            "resume_url": relative_url,
+            "resume_text": extracted_text
+        }
+    )
 
     # Log audit event
     audit_log = AuditLog(
@@ -78,7 +92,12 @@ async def upload_candidate_resume(
         action="candidate.resume_uploaded",
         entity_type="Candidate",
         entity_id=str(candidate_id),
-        details={"filename": file.filename, "size_bytes": len(content)}
+        details={
+            "filename": file.filename,
+            "size_bytes": len(content),
+            "text_length": len(extracted_text),
+            "needs_manual_review": needs_manual_review
+        }
     )
     db.add(audit_log)
     db.commit()

@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, String, ForeignKey
+from sqlalchemy import Column, String, Text, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db.base_class import Base, TimestampMixin
@@ -15,6 +15,8 @@ class Candidate(Base, TimestampMixin):
     last_name = Column(String(100), nullable=False)
     phone = Column(String(50), nullable=True)
     resume_url = Column(String(500), nullable=True)
+    resume_text = Column(Text, nullable=True)
+
 
     # Relationships
     organization = relationship("Organization", back_populates="candidates")

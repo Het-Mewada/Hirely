@@ -273,7 +273,7 @@ export function App() {
           borderRadius: '50%',
           backgroundColor: apiStatus === 'healthy' || apiStatus === 'Connected' ? '#10b981' : '#ef4444'
         }} />
-        <span>✨ Phase 6 — Resume Upload & Storage Complete ({apiStatus})</span>
+        <span>✨ Phase 7 — PDF Text Extraction Complete ({apiStatus})</span>
       </div>
 
       <h1 style={{ fontSize: '3rem', fontWeight: 800, marginBottom: '0.75rem', letterSpacing: '-0.025em' }}>
@@ -281,7 +281,7 @@ export function App() {
       </h1>
       
       <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', maxWidth: '750px', margin: '0 auto 2rem', lineHeight: '1.5' }}>
-        Tenant-Isolated Resume Uploads & Document Storage (PDF, DOCX, TXT).
+        Automated Resume PDF Text Extraction & Scanned Document Flagging.
       </p>
 
       {/* Navigation Bar */}
@@ -390,16 +390,37 @@ export function App() {
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0.15rem 0 0.5rem' }}>{cand.email} {cand.phone ? `• ${cand.phone}` : ''}</div>
                     
                     {cand.resume_url ? (
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.35rem' }}>
-                        <span style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 600 }}>📄 Resume Uploaded</span>
-                        <a
-                          href={`http://localhost:8000${cand.resume_url}${authResponse?.access_token ? `?token=${authResponse.access_token}` : ''}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ fontSize: '0.75rem', color: '#60a5fa', textDecoration: 'underline' }}
-                        >
-                          Download File
-                        </a>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', marginTop: '0.35rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '0.75rem', color: '#34d399', fontWeight: 600 }}>📄 Resume Uploaded</span>
+                          <a
+                            href={`http://localhost:8000${cand.resume_url}${authResponse?.access_token ? `?token=${authResponse.access_token}` : ''}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ fontSize: '0.75rem', color: '#60a5fa', textDecoration: 'underline' }}
+                          >
+                            Download File
+                          </a>
+                        </div>
+
+                        {cand.resume_text && (
+                          <div style={{ marginTop: '0.25rem' }}>
+                            {cand.resume_text.includes('[NEEDS_MANUAL_REVIEW]') ? (
+                              <div style={{ padding: '0.4rem 0.6rem', borderRadius: '0.25rem', backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#fca5a5', fontSize: '0.75rem', textAlign: 'left' }}>
+                                ⚠️ <strong>Needs Manual Review:</strong> Scanned or image-only PDF.
+                              </div>
+                            ) : (
+                              <details style={{ textAlign: 'left' }}>
+                                <summary style={{ cursor: 'pointer', fontSize: '0.75rem', color: '#a7f3d0', fontWeight: 500 }}>
+                                  📝 Extracted Text ({cand.resume_text.length} chars)
+                                </summary>
+                                <pre style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.7rem', color: 'var(--text-secondary)', backgroundColor: 'rgba(0,0,0,0.4)', padding: '0.5rem', borderRadius: '0.375rem', marginTop: '0.25rem', maxHeight: '120px', overflowY: 'auto' }}>
+                                  {cand.resume_text}
+                                </pre>
+                              </details>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.35rem' }}>

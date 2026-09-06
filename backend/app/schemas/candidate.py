@@ -9,6 +9,7 @@ class CandidateBase(BaseModel):
     last_name: str = Field(..., min_length=1, max_length=100, description="Candidate last name")
     phone: Optional[str] = Field(None, max_length=50, description="Phone number")
     resume_url: Optional[str] = Field(None, max_length=500, description="URL or reference path to resume document")
+    resume_text: Optional[str] = Field(None, description="Extracted raw text from resume")
 
 class CandidateCreate(CandidateBase):
     pass
@@ -19,6 +20,8 @@ class CandidateUpdate(BaseModel):
     last_name: Optional[str] = Field(None, min_length=1, max_length=100)
     phone: Optional[str] = Field(None, max_length=50)
     resume_url: Optional[str] = Field(None, max_length=500)
+    resume_text: Optional[str] = Field(None)
+
 
 class CandidateOut(CandidateBase):
     id: UUID
