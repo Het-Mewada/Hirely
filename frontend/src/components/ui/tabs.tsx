@@ -20,14 +20,26 @@ export function Tabs({
 }) {
   return (
     <TabsContext.Provider value={{ activeTab: value, setActiveTab: onValueChange }}>
-      <div className={`w-full ${className}`}>{children}</div>
+      <div style={{ width: '100%' }} className={className}>{children}</div>
     </TabsContext.Provider>
   );
 }
 
-export function TabsList({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+export function TabsList({ children, className = '', style = {} }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   return (
-    <div className={`inline-flex items-center gap-1 rounded-xl bg-slate-100 p-1.5 border border-slate-200/80 ${className}`}>
+    <div
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.25rem',
+        backgroundColor: 'var(--bg-surface)',
+        padding: '0.25rem',
+        borderRadius: '4px',
+        border: '1px solid var(--border-color)',
+        ...style
+      }}
+      className={className}
+    >
       {children}
     </div>
   );
@@ -37,10 +49,12 @@ export function TabsTrigger({
   value,
   children,
   className = '',
+  style = {}
 }: {
   value: string;
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 }) {
   const context = useContext(TabsContext);
   if (!context) throw new Error('TabsTrigger must be used within Tabs');
@@ -50,11 +64,24 @@ export function TabsTrigger({
   return (
     <button
       onClick={() => context.setActiveTab(value)}
-      className={`inline-flex items-center justify-center whitespace-nowrap rounded-lg px-4 py-2 text-xs font-semibold tracking-wide transition-all duration-150 focus-visible:outline-none ${
-        isActive
-          ? 'bg-white text-indigo-700 shadow-sm shadow-slate-200 font-bold border border-slate-200/60'
-          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-      } ${className}`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        whiteSpace: 'nowrap',
+        borderRadius: '3px',
+        padding: '0.375rem 0.875rem',
+        fontSize: '0.8125rem',
+        fontWeight: isActive ? 600 : 500,
+        fontFamily: "var(--font-sans, 'Inter', sans-serif)",
+        cursor: 'pointer',
+        transition: 'all 0.15s ease',
+        backgroundColor: isActive ? 'var(--bg-canvas)' : 'transparent',
+        color: isActive ? 'var(--ink-primary)' : 'var(--ink-muted)',
+        border: isActive ? '1px solid var(--border-color)' : '1px solid transparent',
+        ...style
+      }}
+      className={className}
     >
       {children}
     </button>
@@ -75,5 +102,5 @@ export function TabsContent({
 
   if (context.activeTab !== value) return null;
 
-  return <div className={`mt-4 outline-none ${className}`}>{children}</div>;
+  return <div style={{ marginTop: '1rem' }} className={className}>{children}</div>;
 }

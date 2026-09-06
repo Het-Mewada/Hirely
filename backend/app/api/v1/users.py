@@ -80,6 +80,20 @@ def update_user_role(
         )
 
     previous_role = target_user.role.value
+
+    # Last Admin Protection
+    if target_user.role == UserRole.ADMIN and role_in.role != UserRole.ADMIN:
+        admin_count = db.query(User).filter(
+            User.organization_id == current_user.organization_id,
+            User.role == UserRole.ADMIN,
+            User.is_active == True
+        ).count()
+        if admin_count <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Last Admin Protection: Cannot demote the last remaining Admin in your organization."
+            )
+
     updated_user = repo.update(user_id, {"role": role_in.role})
 
     # Log audit event
@@ -98,6 +112,52 @@ def update_user_role(
     )
 
     return UserOut.model_validate(updated_user)
+
+@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user(
+    user_id: UUID,
+    current_user: User = Depends(require_role(UserRole.ADMIN)),
+    db: Session = Depends(get_db)
+):
+    """
+    Remove a team member from the caller's organization.
+    Role-gated: ADMIN only.
+    Enforces Last Admin Protection (cannot delete the last remaining Admin).
+    """
+    repo = TenantRepository(User, db, current_user.organization_id)
+    target_user = repo.get(user_id)
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User with ID '{user_id}' not found."
+        )
+
+    if target_user.role == UserRole.ADMIN:
+        admin_count = db.query(User).filter(
+            User.organization_id == current_user.organization_id,
+            User.role == UserRole.ADMIN,
+            User.is_active == True
+        ).count()
+        if admin_count <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Last Admin Protection: Cannot remove the last remaining Admin in your organization."
+            )
+
+    deleted_email = target_user.email
+    repo.delete(user_id)
+
+    AuditLogger.log(
+        db=db,
+        organization_id=current_user.organization_id,
+        user_id=current_user.id,
+        action="user.deleted",
+        entity_type="User",
+        entity_id=str(user_id),
+        details={"deleted_email": deleted_email}
+    )
+
+    return None
 
 @router.get("", response_model=List[UserOut])
 def list_users(

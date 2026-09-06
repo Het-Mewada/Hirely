@@ -6,7 +6,7 @@ from app.models.organization import Organization
 from app.models.user import User, UserRole
 from app.models.audit_log import AuditLog
 from app.core.security import hash_password, verify_password, create_access_token
-from app.schemas.auth import OrganizationSignupRequest, LoginRequest, TokenResponse
+from app.schemas.auth import OrganizationSignupRequest, LoginRequest, TokenResponse, ChangePasswordRequest
 from app.schemas.user import UserOut
 from app.schemas.organization import OrganizationOut
 from app.api.deps import get_current_user
@@ -159,3 +159,37 @@ def get_me(current_user: User = Depends(get_current_user)):
     Returns the authenticated user profile, confirming JWT token decoding and tenant context.
     """
     return UserOut.model_validate(current_user)
+
+@router.post("/change-password")
+def change_password(
+    req: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """
+    Allows an authenticated user to change their password by providing old and new password.
+    """
+    if not verify_password(req.old_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+
+    current_user.hashed_password = hash_password(req.new_password)
+
+    try:
+        audit_log = AuditLog(
+            organization_id=current_user.organization_id,
+            user_id=current_user.id,
+            action="user.password_changed",
+            entity_type="User",
+            entity_id=str(current_user.id),
+            details={"email": current_user.email}
+        )
+        db.add(audit_log)
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    return {"message": "Password changed successfully"}
+

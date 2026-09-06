@@ -72,8 +72,7 @@ export function PricingCheckoutModal({
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.75)',
-      backdropFilter: 'blur(8px)',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -81,26 +80,26 @@ export function PricingCheckoutModal({
       padding: '1.5rem'
     }}>
       <div style={{
-        backgroundColor: '#0f172a',
+        backgroundColor: 'var(--bg-surface)',
         border: '1px solid var(--border-color)',
-        borderRadius: '1rem',
-        maxWidth: '680px',
+        borderRadius: '6px',
+        maxWidth: '620px',
         width: '100%',
         maxHeight: '90vh',
         overflowY: 'auto',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-        color: '#f8fafc',
-        padding: '2rem',
+        boxShadow: '0 12px 36px rgba(0, 0, 0, 0.25)',
+        color: 'var(--ink-primary)',
+        padding: '1.75rem',
         textAlign: 'left'
       }}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
           <div>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0 }}>
-              🚀 Upgrade to <span className="gradient-text">Hirely Pro</span>
+            <h2 style={{ fontFamily: "var(--font-serif, 'Source Serif 4', Georgia, serif)", fontSize: '1.35rem', fontWeight: 600, margin: 0, color: 'var(--ink-primary)' }}>
+              Upgrade organization to Pro
             </h2>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.25rem 0 0' }}>
-              Select a plan & complete secure payment for full 1-year unlimited access.
+            <p style={{ fontSize: '0.8125rem', color: 'var(--ink-muted)', margin: '0.25rem 0 0' }}>
+              Select billing cycle and enter payment details to enable full ATS match scoring.
             </p>
           </div>
           <button
@@ -108,8 +107,8 @@ export function PricingCheckoutModal({
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'var(--text-secondary)',
-              fontSize: '1.5rem',
+              color: 'var(--ink-muted)',
+              fontSize: '1.25rem',
               cursor: 'pointer'
             }}
           >
@@ -119,151 +118,149 @@ export function PricingCheckoutModal({
 
         {receipt ? (
           /* Payment Success Receipt View */
-          <div style={{ padding: '1.5rem', borderRadius: '0.75rem', backgroundColor: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', textAlign: 'center' }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>🎉</div>
-            <h3 style={{ fontSize: '1.25rem', fontWeight: 700, color: '#34d399', margin: '0 0 0.5rem' }}>
-              Payment Successful & Plan Upgraded!
+          <div style={{ padding: '1.25rem', borderRadius: '4px', backgroundColor: 'var(--status-matched-bg)', border: '1px solid var(--status-matched-border)', textAlign: 'center' }}>
+            <h3 style={{ fontFamily: "var(--font-serif, 'Source Serif 4', Georgia, serif)", fontSize: '1.125rem', fontWeight: 600, color: 'var(--status-matched)', margin: '0 0 0.5rem' }}>
+              Payment completed successfully
             </h3>
-            <p style={{ fontSize: '0.85rem', color: '#cbd5e1', marginBottom: '1.25rem' }}>
+            <p style={{ fontSize: '0.8125rem', color: 'var(--ink-primary)', marginBottom: '1rem' }}>
               Your organization has been upgraded to <strong>Hirely Pro</strong>.
             </p>
 
-            <div style={{ backgroundColor: 'rgba(0, 0, 0, 0.4)', borderRadius: '0.5rem', padding: '1rem', textAlign: 'left', fontSize: '0.8rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', color: '#e2e8f0' }}>
-              <div>💳 <strong>Transaction ID:</strong> <code style={{ wordBreak: 'break-all', overflowWrap: 'anywhere' }}>{receipt.transaction_id}</code></div>
-              <div>💵 <strong>Amount Paid:</strong> {receipt.amount_paid}</div>
-              <div>📅 <strong>Billing Plan:</strong> {receipt.billing_cycle}</div>
-              <div>⏳ <strong>Pro Access Valid Until:</strong> <strong style={{ color: '#6ee7b7' }}>{new Date(receipt.expires_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })} (1 Year)</strong></div>
-              <div>👤 <strong>Cardholder:</strong> {receipt.cardholder} (**** {receipt.card_last_four})</div>
+            <div style={{ backgroundColor: 'var(--bg-canvas)', borderRadius: '4px', padding: '0.875rem', border: '1px solid var(--border-color)', textAlign: 'left', fontSize: '0.8125rem', display: 'flex', flexDirection: 'column', gap: '0.35rem', color: 'var(--ink-primary)' }}>
+              <div>Transaction ID: <code>{receipt.transaction_id}</code></div>
+              <div>Amount paid: {receipt.amount_paid}</div>
+              <div>Billing cycle: {receipt.billing_cycle}</div>
+              <div>Pro access valid until: <strong>{new Date(receipt.expires_at).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' })}</strong></div>
+              <div>Cardholder: {receipt.cardholder} (**** {receipt.card_last_four})</div>
             </div>
 
             <button
               onClick={onClose}
               style={{
-                marginTop: '1.5rem',
+                marginTop: '1.25rem',
                 width: '100%',
-                padding: '0.75rem',
-                borderRadius: '0.5rem',
+                padding: '0.625rem',
+                borderRadius: '4px',
                 border: 'none',
-                background: 'var(--primary-gradient)',
-                color: 'white',
-                fontWeight: 700,
+                backgroundColor: 'var(--accent-navy)',
+                color: 'var(--accent-navy-text)',
+                fontWeight: 600,
                 cursor: 'pointer'
               }}
             >
-              Continue to Pro Workspace
+              Return to workspace
             </button>
           </div>
         ) : (
           /* Pricing Selection & Payment Form */
           <div>
             {/* Pricing Selector Options */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1.25rem' }}>
               <div
                 onClick={() => setBillingCycle('annual')}
                 style={{
-                  padding: '1rem',
-                  borderRadius: '0.75rem',
-                  border: billingCycle === 'annual' ? '2px solid #6366f1' : '1px solid var(--border-color)',
-                  backgroundColor: billingCycle === 'annual' ? 'rgba(99, 102, 241, 0.12)' : 'rgba(0,0,0,0.3)',
-                  cursor: 'pointer',
-                  position: 'relative'
+                  padding: '0.875rem 1rem',
+                  borderRadius: '4px',
+                  border: billingCycle === 'annual' ? '2px solid var(--accent-navy)' : '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-canvas)',
+                  cursor: 'pointer'
                 }}
               >
-                <div style={{ position: 'absolute', top: '-10px', right: '10px', backgroundColor: '#10b981', color: 'white', fontSize: '0.65rem', fontWeight: 800, padding: '0.15rem 0.5rem', borderRadius: '9999px' }}>
-                  SAVE 20% (1 YEAR)
+                <div style={{ fontSize: '0.7rem', fontWeight: 600, color: 'var(--status-matched)', marginBottom: '0.2rem' }}>
+                  ANNUAL (20% DISCOUNT)
                 </div>
-                <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>Pro Annual</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#a5b4fc', margin: '0.25rem 0' }}>
-                  $39 <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>/mo</span>
+                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--ink-primary)' }}>Pro Annual</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--accent-navy)', margin: '0.15rem 0' }}>
+                  $39 <span style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', fontWeight: 400 }}>/mo</span>
                 </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Billed annually ($468/yr) for 1 Full Year access</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}>Billed annually ($468/yr)</div>
               </div>
 
               <div
                 onClick={() => setBillingCycle('monthly')}
                 style={{
-                  padding: '1rem',
-                  borderRadius: '0.75rem',
-                  border: billingCycle === 'monthly' ? '2px solid #6366f1' : '1px solid var(--border-color)',
-                  backgroundColor: billingCycle === 'monthly' ? 'rgba(99, 102, 241, 0.12)' : 'rgba(0,0,0,0.3)',
+                  padding: '0.875rem 1rem',
+                  borderRadius: '4px',
+                  border: billingCycle === 'monthly' ? '2px solid var(--accent-navy)' : '1px solid var(--border-color)',
+                  backgroundColor: 'var(--bg-canvas)',
                   cursor: 'pointer'
                 }}
               >
-                <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>Pro Monthly</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: '#a5b4fc', margin: '0.25rem 0' }}>
-                  $49 <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>/mo</span>
+                <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--ink-primary)', marginTop: '0.9rem' }}>Pro Monthly</div>
+                <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--accent-navy)', margin: '0.15rem 0' }}>
+                  $49 <span style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', fontWeight: 400 }}>/mo</span>
                 </div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Billed monthly ($49/mo), cancel anytime</div>
+                <div style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}>Billed monthly, cancel anytime</div>
               </div>
             </div>
 
-            {/* Feature Highlights */}
-            <div style={{ backgroundColor: 'rgba(0,0,0,0.3)', borderRadius: '0.5rem', padding: '0.875rem', marginBottom: '1.5rem', fontSize: '0.8rem' }}>
-              <div style={{ fontWeight: 700, marginBottom: '0.4rem', color: '#60a5fa' }}>Included in Pro Plan:</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.35rem', color: '#cbd5e1' }}>
-                <div>✅ Unlimited Active Job Postings</div>
-                <div>✅ AI Resume ATS Match Scoring</div>
-                <div>✅ Explainable 60/30/10 Breakdown</div>
-                <div>✅ Tenant Audit Trail Access</div>
+            {/* Included Features */}
+            <div style={{ backgroundColor: 'var(--bg-canvas)', borderRadius: '4px', border: '1px solid var(--border-color)', padding: '0.75rem 1rem', marginBottom: '1.25rem', fontSize: '0.8125rem' }}>
+              <div style={{ fontWeight: 600, marginBottom: '0.25rem', color: 'var(--ink-primary)' }}>Included in Pro Plan:</div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.25rem', color: 'var(--ink-muted)' }}>
+                <div>• Unlimited job postings</div>
+                <div>• Full ATS match scoring</div>
+                <div>• 60/30/10 score breakdown</div>
+                <div>• Tenant audit trail access</div>
               </div>
             </div>
 
-            {/* Payment Drawer */}
-            <form onSubmit={handleCheckout} style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-              <div style={{ fontSize: '0.9rem', fontWeight: 700, borderBottom: '1px solid var(--border-color)', paddingBottom: '0.35rem', marginBottom: '0.25rem' }}>
-                💳 Payment Information (Stripe Secure Gateway)
+            {/* Payment Form */}
+            <form onSubmit={handleCheckout} style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--ink-primary)', borderBottom: '1px solid var(--border-color)', paddingBottom: '0.35rem' }}>
+                Payment Details
               </div>
 
               <div>
-                <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Cardholder Name</label>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--ink-muted)', display: 'block', marginBottom: '0.2rem' }}>Cardholder name</label>
                 <input
                   type="text"
                   value={cardholderName}
                   onChange={(e) => setCardholderName(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.4)', color: 'white' }}
+                  style={{ width: '100%', backgroundColor: 'var(--bg-canvas)' }}
                   required
                 />
               </div>
 
               <div>
-                <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Card Number</label>
+                <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--ink-muted)', display: 'block', marginBottom: '0.2rem' }}>Card number</label>
                 <input
                   type="text"
                   value={cardNumber}
                   onChange={(e) => setCardNumber(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.4)', color: 'white', fontFamily: 'monospace' }}
+                  style={{ width: '100%', backgroundColor: 'var(--bg-canvas)', fontFamily: 'monospace' }}
                   required
                 />
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
                 <div>
-                  <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Expiration Date</label>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--ink-muted)', display: 'block', marginBottom: '0.2rem' }}>Expiration date</label>
                   <input
                     type="text"
                     value={cardExp}
                     onChange={(e) => setCardExp(e.target.value)}
                     placeholder="MM/YY"
-                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.4)', color: 'white' }}
+                    style={{ width: '100%', backgroundColor: 'var(--bg-canvas)' }}
                     required
                   />
                 </div>
                 <div>
-                  <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>CVC Code</label>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--ink-muted)', display: 'block', marginBottom: '0.2rem' }}>CVC code</label>
                   <input
                     type="text"
                     value={cardCvc}
                     onChange={(e) => setCardCvc(e.target.value)}
                     placeholder="123"
-                    style={{ width: '100%', padding: '0.5rem', borderRadius: '0.375rem', border: '1px solid var(--border-color)', backgroundColor: 'rgba(0,0,0,0.4)', color: 'white' }}
+                    style={{ width: '100%', backgroundColor: 'var(--bg-canvas)' }}
                     required
                   />
                 </div>
               </div>
 
               {error && (
-                <div style={{ padding: '0.5rem 0.75rem', borderRadius: '0.375rem', backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', fontSize: '0.8rem' }}>
-                  ⚠️ {error}
+                <div style={{ padding: '0.5rem 0.75rem', borderRadius: '4px', backgroundColor: 'var(--status-rejected-bg)', border: '1px solid var(--status-rejected-border)', color: 'var(--status-rejected)', fontSize: '0.8125rem' }}>
+                  {error}
                 </div>
               )}
 
@@ -272,23 +269,18 @@ export function PricingCheckoutModal({
                 disabled={loading}
                 style={{
                   marginTop: '0.5rem',
-                  padding: '0.85rem',
-                  borderRadius: '0.5rem',
+                  padding: '0.75rem',
+                  borderRadius: '4px',
                   border: 'none',
-                  background: 'var(--primary-gradient)',
-                  color: 'white',
-                  fontWeight: 800,
-                  fontSize: '0.95rem',
-                  cursor: 'pointer',
-                  boxShadow: '0 4px 15px rgba(99, 102, 241, 0.4)'
+                  backgroundColor: 'var(--accent-navy)',
+                  color: 'var(--accent-navy-text)',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  cursor: 'pointer'
                 }}
               >
-                {loading ? '⚡ Processing Secure Payment...' : `🔒 Pay ${billingCycle === 'annual' ? '$468.00 USD (1 Year)' : '$49.00 USD'} & Upgrade Now`}
+                {loading ? 'Processing payment...' : `Pay ${billingCycle === 'annual' ? '$468.00 USD' : '$49.00 USD'} & upgrade`}
               </button>
-
-              <div style={{ textAlign: 'center', fontSize: '0.7rem', color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                🔒 256-Bit SSL Encrypted • 30-Day Money Back Guarantee
-              </div>
             </form>
           </div>
         )}

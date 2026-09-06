@@ -53,6 +53,15 @@ def list_audit_logs(
         out.actor_id = log.user_id
         out.target_type = log.entity_type
         out.target_id = log.entity_id
+
+        if log.user:
+            out.actor_name = log.user.full_name
+            out.actor_email = log.user.email
+        elif isinstance(log.details, dict):
+            email = log.details.get("resumed_by") or log.details.get("cancelled_by") or log.details.get("updated_by") or log.details.get("cardholder")
+            out.actor_email = email
+            out.actor_name = log.details.get("cardholder") or email
+
         result.append(out)
 
     return result

@@ -41,9 +41,7 @@ export function Dialog({
         alignItems: 'center',
         justifyContent: 'center',
         padding: '1rem',
-        backgroundColor: 'rgba(15, 23, 42, 0.75)',
-        backdropFilter: 'blur(8px)',
-        WebkitBackdropFilter: 'blur(8px)',
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
         overflowY: 'auto'
       }}
     >
@@ -54,16 +52,16 @@ export function Dialog({
           zIndex: 10000,
           width: '100%',
           maxWidth: maxWidth,
-          backgroundColor: '#1e293b',
-          borderRadius: '1rem',
-          border: '1px solid rgba(255, 255, 255, 0.12)',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 25px rgba(99, 102, 241, 0.15)',
+          backgroundColor: 'var(--bg-surface)',
+          borderRadius: '6px',
+          border: '1px solid var(--border-color)',
+          boxShadow: '0 12px 36px rgba(0, 0, 0, 0.25)',
           overflow: 'hidden',
           display: 'flex',
           flexDirection: 'column',
           maxHeight: '85vh',
           textAlign: 'left',
-          color: '#f8fafc'
+          color: 'var(--ink-primary)'
         }}
       >
         {title && (
@@ -72,10 +70,10 @@ export function Dialog({
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '1.25rem 1.5rem',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-            backgroundColor: 'rgba(15, 23, 42, 0.4)'
+            borderBottom: '1px solid var(--border-color)',
+            backgroundColor: 'var(--bg-canvas)'
           }}>
-            <h3 style={{ fontSize: '1.15rem', fontWeight: 700, margin: 0, color: '#f8fafc', letterSpacing: '-0.01em' }}>
+            <h3 style={{ fontFamily: "var(--font-serif, 'Source Serif 4', Georgia, serif)", fontSize: '1.25rem', fontWeight: 600, margin: 0, color: 'var(--ink-primary)', letterSpacing: '-0.015em' }}>
               {title}
             </h3>
             <button
@@ -84,17 +82,14 @@ export function Dialog({
               style={{
                 background: 'transparent',
                 border: 'none',
-                color: '#94a3b8',
+                color: 'var(--ink-muted)',
                 cursor: 'pointer',
                 padding: '0.35rem',
-                borderRadius: '0.375rem',
+                borderRadius: '4px',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s'
+                justifyContent: 'center'
               }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = '#f8fafc')}
-              onMouseLeave={(e) => (e.currentTarget.style.color = '#94a3b8')}
             >
               <svg style={{ width: '1.25rem', height: '1.25rem' }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

@@ -364,17 +364,27 @@ def update_organization_plan(
     db.commit()
     db.refresh(org)
 
+    is_downgrade = (old_plan != "free" and new_plan == "free")
+    audit_action = "plan downgraded" if is_downgrade else "organization.plan_updated"
+
+    from app.models.job_posting import JobPosting, JobStatus
+    active_count = db.query(JobPosting).filter(
+        JobPosting.organization_id == org.id,
+        JobPosting.status == JobStatus.PUBLISHED
+    ).count()
+
     AuditLogger.log(
         db=db,
         organization_id=org.id,
         user_id=current_user.id,
-        action="organization.plan_updated",
+        action=audit_action,
         entity_type="Organization",
         entity_id=str(org.id),
         details={
             "previous_plan": old_plan,
             "new_plan": new_plan,
-            "updated_by": current_user.email
+            "updated_by": current_user.email,
+            "active_jobs_count": active_count
         }
     )
 

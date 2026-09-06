@@ -1,9 +1,18 @@
 import React from 'react';
 
-export function Card({ className = '', children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+export function Card({ className = '', style = {}, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`rounded-xl border border-slate-200 bg-white text-slate-950 shadow-sm transition-all duration-200 hover:shadow-md ${className}`}
+      style={{
+        backgroundColor: 'var(--bg-surface)',
+        border: '1px solid var(--border-color)',
+        borderRadius: '6px',
+        color: 'var(--ink-primary)',
+        boxShadow: 'none',
+        overflow: 'hidden',
+        ...style,
+      }}
+      className={className}
       {...props}
     >
       {children}
@@ -11,41 +20,91 @@ export function Card({ className = '', children, ...props }: React.HTMLAttribute
   );
 }
 
-export function CardHeader({ className = '', children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+export function CardHeader({ className = '', style = {}, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`flex flex-col space-y-1.5 p-6 border-b border-slate-100/80 ${className}`} {...props}>
+    <div
+      style={{
+        padding: '1.25rem 1.5rem',
+        borderBottom: '1px solid var(--border-color)',
+        backgroundColor: 'var(--bg-canvas)',
+        ...style,
+      }}
+      className={className}
+      {...props}
+    >
       {children}
     </div>
   );
 }
 
-export function CardTitle({ className = '', children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
+export function CardTitle({ className = '', style = {}, children, ...props }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
-    <h3 className={`text-lg font-semibold leading-none tracking-tight text-slate-900 ${className}`} {...props}>
+    <h3
+      style={{
+        fontFamily: "var(--font-serif, 'Source Serif 4', Georgia, serif)",
+        fontSize: '1.125rem',
+        fontWeight: 600,
+        color: 'var(--ink-primary)',
+        letterSpacing: '-0.015em',
+        margin: 0,
+        ...style,
+      }}
+      className={className}
+      {...props}
+    >
       {children}
     </h3>
   );
 }
 
-export function CardDescription({ className = '', children, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
+export function CardDescription({ className = '', style = {}, children, ...props }: React.HTMLAttributes<HTMLParagraphElement>) {
   return (
-    <p className={`text-sm text-slate-500 mt-1 ${className}`} {...props}>
+    <p
+      style={{
+        fontFamily: "var(--font-sans, 'Inter', sans-serif)",
+        fontSize: '0.8125rem',
+        color: 'var(--ink-muted)',
+        marginTop: '0.25rem',
+        margin: 0,
+        ...style,
+      }}
+      className={className}
+      {...props}
+    >
       {children}
     </p>
   );
 }
 
-export function CardContent({ className = '', children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+export function CardContent({ className = '', style = {}, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`p-6 ${className}`} {...props}>
+    <div
+      style={{
+        padding: '1.5rem',
+        ...style,
+      }}
+      className={className}
+      {...props}
+    >
       {children}
     </div>
   );
 }
 
-export function CardFooter({ className = '', children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+export function CardFooter({ className = '', style = {}, children, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={`flex items-center p-6 pt-0 ${className}`} {...props}>
+    <div
+      style={{
+        padding: '1rem 1.5rem',
+        borderTop: '1px solid var(--border-color)',
+        backgroundColor: 'var(--bg-canvas)',
+        display: 'flex',
+        alignItems: 'center',
+        ...style,
+      }}
+      className={className}
+      {...props}
+    >
       {children}
     </div>
   );

@@ -17,5 +17,7 @@ class AuditLogOut(BaseModel):
     details: Optional[Dict] = Field(None, description="Event payload details")
     created_at: datetime
     user: Optional[UserOut] = None
+    actor_name: Optional[str] = None
+    actor_email: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)

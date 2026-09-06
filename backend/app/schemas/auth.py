@@ -25,3 +25,8 @@ class TokenPayload(BaseModel):
     sub: Optional[str] = None
     org_id: Optional[str] = None
     role: Optional[str] = None
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str = Field(..., description="Current or temporary password")
+    new_password: str = Field(..., min_length=8, max_length=100, description="New password (minimum 8 characters)")
+

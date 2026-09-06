@@ -1,18 +1,22 @@
 import React from 'react';
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  variant?: 'default' | 'success' | 'warning' | 'destructive' | 'outline' | 'purple' | 'indigo';
+  variant?: 'default' | 'secondary' | 'success' | 'warning' | 'destructive' | 'outline' | 'purple' | 'indigo' | 'matched' | 'pending' | 'rejected';
 }
 
 export function Badge({ className = '', variant = 'default', children, style = {}, ...props }: BadgeProps) {
   const variantStyles: Record<string, React.CSSProperties> = {
-    default: { backgroundColor: 'rgba(255, 255, 255, 0.1)', color: '#f8fafc', border: '1px solid rgba(255, 255, 255, 0.15)' },
-    success: { backgroundColor: 'rgba(16, 185, 129, 0.15)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)' },
-    warning: { backgroundColor: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.3)' },
-    destructive: { backgroundColor: 'rgba(239, 68, 68, 0.15)', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.3)' },
-    outline: { backgroundColor: 'transparent', color: '#94a3b8', border: '1px solid rgba(255, 255, 255, 0.2)' },
-    purple: { backgroundColor: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.3)' },
-    indigo: { backgroundColor: 'rgba(99, 102, 241, 0.15)', color: '#818cf8', border: '1px solid rgba(99, 102, 241, 0.3)' },
+    default: { backgroundColor: 'var(--bg-surface)', color: 'var(--ink-primary)', border: '1px solid var(--border-color)' },
+    secondary: { backgroundColor: 'var(--bg-surface)', color: 'var(--ink-muted)', border: '1px solid var(--border-color)' },
+    success: { backgroundColor: 'var(--status-matched-bg)', color: 'var(--status-matched)', border: '1px solid var(--status-matched-border)' },
+    matched: { backgroundColor: 'var(--status-matched-bg)', color: 'var(--status-matched)', border: '1px solid var(--status-matched-border)' },
+    warning: { backgroundColor: 'var(--status-pending-bg)', color: 'var(--status-pending)', border: '1px solid var(--status-pending-border)' },
+    pending: { backgroundColor: 'var(--status-pending-bg)', color: 'var(--status-pending)', border: '1px solid var(--status-pending-border)' },
+    destructive: { backgroundColor: 'var(--status-rejected-bg)', color: 'var(--status-rejected)', border: '1px solid var(--status-rejected-border)' },
+    rejected: { backgroundColor: 'var(--status-rejected-bg)', color: 'var(--status-rejected)', border: '1px solid var(--status-rejected-border)' },
+    outline: { backgroundColor: 'transparent', color: 'var(--ink-primary)', border: '1px solid var(--border-color)' },
+    purple: { backgroundColor: 'var(--bg-surface)', color: 'var(--ink-primary)', border: '1px solid var(--border-color)' },
+    indigo: { backgroundColor: 'var(--bg-surface)', color: 'var(--ink-primary)', border: '1px solid var(--border-color)' },
   };
 
   return (
@@ -20,12 +24,12 @@ export function Badge({ className = '', variant = 'default', children, style = {
       style={{
         display: 'inline-flex',
         alignItems: 'center',
-        padding: '0.2rem 0.6rem',
-        borderRadius: '9999px',
+        padding: '0.15rem 0.5rem',
+        borderRadius: '3px',
         fontSize: '0.75rem',
-        fontWeight: 600,
-        letterSpacing: '0.025em',
-        transition: 'all 0.15s ease',
+        fontWeight: 500,
+        fontFamily: "var(--font-sans, 'Inter', sans-serif)",
+        lineHeight: 1.4,
         ...variantStyles[variant],
         ...style,
       }}
@@ -35,4 +39,3 @@ export function Badge({ className = '', variant = 'default', children, style = {
     </span>
   );
 }
-

@@ -23,7 +23,7 @@ def create_job_posting(
     Role-gated: Only ADMIN and RECRUITER can create job postings.
     Generates an audit log entry (`job.created`).
     """
-    # Subscription Plan Gating for Free Tier (Max 2 active jobs)
+    # Subscription Plan Gating for Free Tier (Max 2 active jobs - Soft Lock Policy)
     target_status = job_in.status or JobStatus.PUBLISHED
     if target_status == JobStatus.PUBLISHED:
         from app.models.organization import Organization
@@ -34,9 +34,22 @@ def create_job_posting(
                 JobPosting.status == JobStatus.PUBLISHED
             ).count()
             if active_count >= 2:
+                AuditLogger.log(
+                    db=db,
+                    organization_id=current_user.organization_id,
+                    user_id=current_user.id,
+                    action="job posting blocked — limit exceeded",
+                    entity_type="JobPosting",
+                    details={
+                        "reason": "Free plan active job limit exceeded",
+                        "active_job_count": active_count,
+                        "plan_limit": 2,
+                        "attempted_action": "create"
+                    }
+                )
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Plan limit reached: Free plan allows maximum 2 active job postings. Upgrade to Pro to publish more jobs."
+                    detail=f"Your plan allows 2 active postings — you currently have {active_count}. Archive some postings or upgrade to add more."
                 )
 
     repo = TenantRepository(JobPosting, db, current_user.organization_id)
@@ -123,9 +136,23 @@ def update_job_posting(
                     JobPosting.status == JobStatus.PUBLISHED
                 ).count()
                 if active_count >= 2:
+                    AuditLogger.log(
+                        db=db,
+                        organization_id=current_user.organization_id,
+                        user_id=current_user.id,
+                        action="job posting blocked — limit exceeded",
+                        entity_type="JobPosting",
+                        entity_id=str(job_id),
+                        details={
+                            "reason": "Free plan active job limit exceeded",
+                            "active_job_count": active_count,
+                            "plan_limit": 2,
+                            "attempted_action": "reactivate"
+                        }
+                    )
                     raise HTTPException(
                         status_code=status.HTTP_403_FORBIDDEN,
-                        detail="Plan limit reached: Free plan allows maximum 2 active job postings. Upgrade to Pro to publish more jobs."
+                        detail=f"Your plan allows 2 active postings — you currently have {active_count}. Archive some postings or upgrade to add more."
                     )
 
     updated_job = repo.update(job_id, update_data)

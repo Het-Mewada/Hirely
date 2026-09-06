@@ -96,7 +96,7 @@ def test_job_posting_limit_free_plan(client, db_session):
     # Job 3 (Published) -> 403 Forbidden (Free tier limit reached)
     res3 = client.post("/api/v1/jobs", json={"title": "Job 3", "description": "Desc", "status": "published"}, headers=headers)
     assert res3.status_code == 403
-    assert "Free plan allows maximum 2 active job postings" in res3.json()["detail"]
+    assert "Your plan allows 2 active postings — you currently have 2" in res3.json()["detail"]
 
     # Upgrade to Pro
     upgrade_res = client.patch("/api/v1/organizations/me/plan", json={"plan": "pro"}, headers=headers)
@@ -105,6 +105,70 @@ def test_job_posting_limit_free_plan(client, db_session):
     # Job 3 (Published on Pro tier) -> 201 Created
     res3_pro = client.post("/api/v1/jobs", json={"title": "Job 3", "description": "Desc", "status": "published"}, headers=headers)
     assert res3_pro.status_code == 201
+
+def test_soft_lock_on_downgrade(client, db_session):
+    # 1. Pro tenant creates 5 active job postings
+    org = Organization(id=uuid4(), name="Soft Lock Org", slug=f"soft-lock-{uuid4()}", plan="free")
+    db_session.add(org)
+    db_session.commit()
+
+    admin = User(
+        id=uuid4(),
+        organization_id=org.id,
+        email=f"admin.{uuid4()}@softlock.com",
+        hashed_password=hash_password("Pass123!"),
+        full_name="Soft Lock Admin",
+        role=UserRole.ADMIN,
+        is_active=True
+    )
+    db_session.add(admin)
+    db_session.commit()
+
+    token = create_access_token(str(admin.id), str(org.id), admin.role.value)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Set plan to pro via endpoint so DB is updated
+    patch_res = client.patch("/api/v1/organizations/me/plan", json={"plan": "pro"}, headers=headers)
+    assert patch_res.status_code == 200
+
+    job_ids = []
+    for i in range(1, 6):
+        r = client.post("/api/v1/jobs", json={"title": f"Pro Job {i}", "description": "Desc", "status": "published"}, headers=headers)
+        assert r.status_code == 201
+        job_ids.append(r.json()["id"])
+
+    # 2. Downgrade to Free plan
+    down_res = client.patch("/api/v1/organizations/me/plan", json={"plan": "free"}, headers=headers)
+    assert down_res.status_code == 200
+    assert down_res.json()["plan"] == "free"
+
+    # 3. Soft Lock: All 5 existing jobs remain published and visible
+    list_res = client.get("/api/v1/jobs", headers=headers)
+    assert list_res.status_code == 200
+    assert len(list_res.json()) == 5
+    for j in list_res.json():
+        assert j["status"] == "published"
+
+    # 4. Attempt to create 6th active job -> Blocked with 403 & soft lock audit log
+    blocked_create = client.post("/api/v1/jobs", json={"title": "Job 6", "description": "Desc", "status": "published"}, headers=headers)
+    assert blocked_create.status_code == 403
+    assert "Your plan allows 2 active postings — you currently have 5" in blocked_create.json()["detail"]
+
+    # Check Audit log for 'plan downgraded' and 'job posting blocked — limit exceeded'
+    audit_res = client.get("/api/v1/audit-logs", headers=headers)
+    assert audit_res.status_code == 200
+    actions = [l["action"] for l in audit_res.json()]
+    assert "plan downgraded" in actions
+    assert "job posting blocked — limit exceeded" in actions
+
+    # 5. Archive 4 jobs (set status to 'closed') so 1 active job remains
+    for j_id in job_ids[:4]:
+        patch_res = client.patch(f"/api/v1/jobs/{j_id}", json={"status": "closed"}, headers=headers)
+        assert patch_res.status_code == 200
+
+    # 6. Now 1 active job remains -> Unblocked automatically for creating 2nd active job!
+    unblocked_create = client.post("/api/v1/jobs", json={"title": "Job 6", "description": "Desc", "status": "published"}, headers=headers)
+    assert unblocked_create.status_code == 201
 
 def test_ai_scoring_gated_by_plan(client, db_session):
     org = Organization(name="Score Gate Org", slug=f"score-gate-{uuid4()}", plan="free")

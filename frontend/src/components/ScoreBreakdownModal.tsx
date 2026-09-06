@@ -23,23 +23,23 @@ export function ScoreBreakdownModal({
     }
   }
 
-  const candName = application?.candidate ? `${application.candidate.first_name} ${application.candidate.last_name}` : 'Candidate Profile';
-  const jobTitle = application?.job_posting ? application.job_posting.title : 'Job Posting';
+  const candName = application?.candidate ? `${application.candidate.first_name} ${application.candidate.last_name}` : 'Candidate profile';
+  const jobTitle = application?.job_posting ? application.job_posting.title : 'Job posting';
 
   const finalScore = b?.final_score ?? 0;
   const getMatchTier = (score: number) => {
-    if (score >= 75) return { label: 'High Match', variant: 'success' as const, color: '#34d399' };
-    if (score >= 45) return { label: 'Moderate Match', variant: 'warning' as const, color: '#fbbf24' };
-    return { label: 'Low Match', variant: 'destructive' as const, color: '#f87171' };
+    if (score >= 75) return { label: 'High match', variant: 'matched' as const, color: 'var(--status-matched)' };
+    if (score >= 45) return { label: 'Moderate match', variant: 'pending' as const, color: 'var(--status-pending)' };
+    return { label: 'Low match', variant: 'rejected' as const, color: 'var(--status-rejected)' };
   };
 
   const tier = getMatchTier(finalScore);
 
   return (
-    <Dialog isOpen={isOpen} onClose={onClose} title="Explainable ATS Match Score Breakdown">
+    <Dialog isOpen={isOpen} onClose={onClose} title="ATS match score breakdown">
       {!b ? (
         <div style={{ textAlign: 'center', padding: '2rem 1rem' }}>
-          <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
+          <p style={{ color: 'var(--ink-muted)', fontSize: '0.875rem', marginBottom: '1.5rem' }}>
             No detailed score breakdown available for this application yet.
           </p>
           <Button variant="secondary" onClick={onClose}>
@@ -48,92 +48,86 @@ export function ScoreBreakdownModal({
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', textAlign: 'left' }}>
-          {/* Header Overview Card */}
+          {/* Header Overview Panel */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
               padding: '1.25rem',
-              backgroundColor: 'rgba(15, 23, 42, 0.6)',
-              borderRadius: '0.75rem',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+              backgroundColor: 'var(--bg-canvas)',
+              borderRadius: '4px',
+              border: '1px solid var(--border-color)'
             }}
           >
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
-                <h4 style={{ fontSize: '1.15rem', fontWeight: 800, color: '#f8fafc', margin: 0 }}>{candName}</h4>
+                <h4 style={{ fontFamily: "var(--font-serif, 'Source Serif 4', Georgia, serif)", fontSize: '1.25rem', fontWeight: 600, color: 'var(--ink-primary)', margin: 0 }}>
+                  {candName}
+                </h4>
                 <Badge variant={tier.variant}>{tier.label}</Badge>
               </div>
-              <p style={{ fontSize: '0.85rem', color: '#94a3b8', margin: 0, fontWeight: 500 }}>{jobTitle}</p>
+              <p style={{ fontSize: '0.8125rem', color: 'var(--ink-muted)', margin: 0 }}>{jobTitle}</p>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '2.25rem', fontWeight: 900, color: tier.color, lineHeight: 1 }}>
+              <div style={{ fontSize: '2rem', fontWeight: 700, color: tier.color, lineHeight: 1 }}>
                 {b.final_score}%
               </div>
-              <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '0.25rem', marginBottom: 0 }}>
-                Match Score
+              <p style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', marginTop: '0.25rem', marginBottom: 0 }}>
+                Match score
               </p>
             </div>
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <h5 style={{ fontSize: '0.7rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', margin: 0 }}>
-              Component Weight Breakdown
-            </h5>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--ink-muted)' }}>
+              Component weight breakdown
+            </div>
 
             {/* Skill Overlap (60%) */}
             <div
               style={{
-                padding: '1rem 1.25rem',
-                borderRadius: '0.75rem',
-                backgroundColor: 'rgba(30, 41, 59, 0.7)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                padding: '1rem',
+                borderRadius: '4px',
+                backgroundColor: 'var(--bg-canvas)',
+                border: '1px solid var(--border-color)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '0.75rem'
+                gap: '0.625rem'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700, color: '#f8fafc' }}>
-
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ width: '0.625rem', height: '0.625rem', borderRadius: '9999px', backgroundColor: '#6366f1', display: 'inline-block' }}></span>
-                  Skill Overlap (60% Weight)
-                </span>
-                <span style={{ color: '#818cf8', fontWeight: 800 }}>
-                  {b.skills_score}% <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>({b.weighted_components?.skills_component ?? Math.round(b.skills_score * 0.6)} pts)</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--ink-primary)' }}>
+                <span>Skill overlap (60% weight)</span>
+                <span style={{ color: 'var(--accent-navy)' }}>
+                  {b.skills_score}% <span style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', fontWeight: 400 }}>({b.weighted_components?.skills_component ?? Math.round(b.skills_score * 0.6)} pts)</span>
                 </span>
               </div>
-              <Progress value={b.skills_score || 0} color="linear-gradient(90deg, #6366f1, #818cf8)" />
+              <Progress value={b.skills_score || 0} color="var(--accent-navy)" />
               
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.25rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', marginTop: '0.25rem' }}>
                 {b.matched_skills && b.matched_skills.length > 0 && (
                   <div>
-                    <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#34d399', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>
-                      Matched Skills ({b.matched_skills.length})
+                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--status-matched)', marginBottom: '0.25rem' }}>
+                      Matched skills ({b.matched_skills.length})
                     </p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
                       {b.matched_skills.map((s: string, i: number) => (
-                        <Badge key={i} variant="success">✓ {s}</Badge>
+                        <Badge key={i} variant="matched">✓ {s}</Badge>
                       ))}
                     </div>
                   </div>
                 )}
                 {b.missing_skills && b.missing_skills.length > 0 && (
                   <div>
-                    <p style={{ fontSize: '0.7rem', fontWeight: 700, color: '#f87171', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.35rem' }}>
-                      Missing Required Skills ({b.missing_skills.length})
+                    <p style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--status-rejected)', marginBottom: '0.25rem' }}>
+                      Missing required skills ({b.missing_skills.length})
                     </p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
                       {b.missing_skills.map((s: string, i: number) => (
-                        <Badge key={i} variant="destructive">✗ {s}</Badge>
+                        <Badge key={i} variant="rejected">✗ {s}</Badge>
                       ))}
                     </div>
                   </div>
-                )}
-                {(!b.matched_skills || b.matched_skills.length === 0) && (!b.missing_skills || b.missing_skills.length === 0) && (
-                  <p style={{ fontSize: '0.75rem', color: '#64748b', fontStyle: 'italic' }}>No skill requirements recorded for this position.</p>
                 )}
               </div>
             </div>
@@ -141,73 +135,51 @@ export function ScoreBreakdownModal({
             {/* Experience Fit (30%) */}
             <div
               style={{
-                padding: '1rem 1.25rem',
-                borderRadius: '0.75rem',
-                backgroundColor: 'rgba(30, 41, 59, 0.7)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                padding: '1rem',
+                borderRadius: '4px',
+                backgroundColor: 'var(--bg-canvas)',
+                border: '1px solid var(--border-color)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '0.75rem'
+                gap: '0.625rem'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700, color: '#f8fafc' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ width: '0.625rem', height: '0.625rem', borderRadius: '9999px', backgroundColor: '#a855f7', display: 'inline-block' }}></span>
-                  Experience Fit (30% Weight)
-                </span>
-                <span style={{ color: '#c084fc', fontWeight: 800 }}>
-                  {b.experience_score}% <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>({b.weighted_components?.experience_component ?? Math.round(b.experience_score * 0.3)} pts)</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--ink-primary)' }}>
+                <span>Experience fit (30% weight)</span>
+                <span style={{ color: 'var(--accent-navy)' }}>
+                  {b.experience_score}% <span style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', fontWeight: 400 }}>({b.weighted_components?.experience_component ?? Math.round(b.experience_score * 0.3)} pts)</span>
                 </span>
               </div>
-              <Progress value={b.experience_score || 0} color="linear-gradient(90deg, #a855f7, #c084fc)" />
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '1rem',
-                  padding: '0.5rem 0.75rem',
-                  backgroundColor: 'rgba(15, 23, 42, 0.4)',
-                  borderRadius: '0.5rem',
-                  fontSize: '0.8rem',
-                  color: '#cbd5e1'
-                }}
-              >
-                <span>Candidate Experience: <strong style={{ color: '#f8fafc' }}>{b.candidate_experience_years ?? 0} yrs</strong></span>
-                <span style={{ color: 'rgba(255,255,255,0.2)' }}>|</span>
-                <span>Job Stated Minimum: <strong style={{ color: '#f8fafc' }}>{b.job_required_experience_years ?? 0} yrs</strong></span>
+              <Progress value={b.experience_score || 0} color="var(--accent-navy)" />
+              <div style={{ fontSize: '0.75rem', color: 'var(--ink-muted)' }}>
+                Candidate experience: <strong>{b.candidate_experience_years ?? 0} yrs</strong> • Job stated minimum: <strong>{b.job_required_experience_years ?? 0} yrs</strong>
               </div>
             </div>
 
             {/* Keyword/TF-IDF Cosine Similarity (10%) */}
             <div
               style={{
-                padding: '1rem 1.25rem',
-                borderRadius: '0.75rem',
-                backgroundColor: 'rgba(30, 41, 59, 0.7)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                padding: '1rem',
+                borderRadius: '4px',
+                backgroundColor: 'var(--bg-canvas)',
+                border: '1px solid var(--border-color)',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '0.75rem'
+                gap: '0.625rem'
               }}
             >
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.85rem', fontWeight: 700, color: '#f8fafc' }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ width: '0.625rem', height: '0.625rem', borderRadius: '9999px', backgroundColor: '#10b981', display: 'inline-block' }}></span>
-                  TF-IDF Text Cosine Similarity (10% Weight)
-                </span>
-                <span style={{ color: '#34d399', fontWeight: 800 }}>
-                  {b.similarity_score}% <span style={{ fontSize: '0.75rem', color: '#94a3b8', fontWeight: 500 }}>({b.weighted_components?.similarity_component ?? Math.round(b.similarity_score * 0.1)} pts)</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--ink-primary)' }}>
+                <span>TF-IDF text similarity (10% weight)</span>
+                <span style={{ color: 'var(--accent-navy)' }}>
+                  {b.similarity_score}% <span style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', fontWeight: 400 }}>({b.weighted_components?.similarity_component ?? Math.round(b.similarity_score * 0.1)} pts)</span>
                 </span>
               </div>
-              <Progress value={b.similarity_score || 0} color="linear-gradient(90deg, #10b981, #34d399)" />
-              <p style={{ fontSize: '0.75rem', color: '#94a3b8', margin: 0, lineHeight: 1.4 }}>
-                Measures natural language cosine similarity between full resume text and job posting description.
-              </p>
+              <Progress value={b.similarity_score || 0} color="var(--accent-navy)" />
             </div>
           </div>
 
           <div style={{ paddingTop: '0.5rem', display: 'flex', justifyContent: 'flex-end' }}>
-            <Button variant="primary" onClick={onClose} style={{ minWidth: '100px' }}>
+            <Button variant="primary" onClick={onClose}>
               Done
             </Button>
           </div>
@@ -216,4 +188,3 @@ export function ScoreBreakdownModal({
     </Dialog>
   );
 }
-

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { ConfirmationModal } from './ui/ConfirmationModal'
 
 interface ManageSubscriptionModalProps {
   isOpen: boolean
@@ -19,6 +20,18 @@ export function ManageSubscriptionModal({
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
 
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean
+    title: string
+    description?: string
+    confirmText?: string
+    isDestructive?: boolean
+    onConfirm?: () => void
+  }>({
+    isOpen: false,
+    title: ''
+  })
+
   if (!isOpen || !organization) return null
 
   const isCancelled = Boolean(organization.cancel_at_period_end)
@@ -28,11 +41,11 @@ export function ManageSubscriptionModal({
         month: 'long',
         day: 'numeric'
       })
-    : 'End of Billing Period'
+    : 'End of billing period'
 
-  const handleCancelSubscription = async () => {
+  const executeCancelSubscription = async () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }))
     if (!token) return
-    if (!window.confirm('Are you sure you want to cancel your subscription auto-renewal? You will keep full Pro access until your current billing period ends.')) return
 
     setLoading(true)
     setError('')
@@ -56,6 +69,17 @@ export function ManageSubscriptionModal({
     } finally {
       setLoading(false)
     }
+  }
+
+  const promptCancelSubscription = () => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Cancel subscription auto-renewal?',
+      description: `You will keep full Pro access until your current billing period ends on ${expiresAt}.`,
+      confirmText: 'Confirm cancellation',
+      isDestructive: false,
+      onConfirm: executeCancelSubscription
+    })
   }
 
   const handleResumeSubscription = async () => {
@@ -84,6 +108,46 @@ export function ManageSubscriptionModal({
     }
   }
 
+  const executeDowngradeToFree = async () => {
+    setConfirmConfig(prev => ({ ...prev, isOpen: false }))
+    if (!token) return
+
+    setLoading(true)
+    setError('')
+    setMessage('')
+
+    try {
+      const res = await fetch('http://localhost:8000/api/v1/organizations/me/plan', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ plan: 'free' })
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.detail || 'Failed to downgrade plan.')
+
+      onSubscriptionUpdated(data)
+      setMessage('Plan downgraded to Free tier. Soft lock policy is now active.')
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const promptDowngradeToFree = () => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Downgrade to Free plan?',
+      description: 'Your existing postings will remain intact under soft lock, but creating or reactivating postings will be restricted if over 2 active jobs.',
+      confirmText: 'Downgrade plan',
+      isDestructive: true,
+      onConfirm: executeDowngradeToFree
+    })
+  }
+
   return (
     <div style={{
       position: 'fixed',
@@ -91,8 +155,7 @@ export function ManageSubscriptionModal({
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.75)',
-      backdropFilter: 'blur(8px)',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -100,24 +163,24 @@ export function ManageSubscriptionModal({
       padding: '1.5rem'
     }}>
       <div style={{
-        backgroundColor: '#0f172a',
+        backgroundColor: 'var(--bg-surface)',
         border: '1px solid var(--border-color)',
-        borderRadius: '1rem',
-        maxWidth: '560px',
+        borderRadius: '6px',
+        maxWidth: '520px',
         width: '100%',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-        color: '#f8fafc',
-        padding: '2rem',
+        boxShadow: '0 12px 36px rgba(0, 0, 0, 0.25)',
+        color: 'var(--ink-primary)',
+        padding: '1.75rem',
         textAlign: 'left'
       }}>
         {/* Header */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.25rem' }}>
           <div>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0 }}>
-              💳 Manage <span className="gradient-text">Pro Subscription</span>
+            <h2 style={{ fontFamily: "var(--font-serif, 'Source Serif 4', Georgia, serif)", fontSize: '1.35rem', fontWeight: 600, margin: 0, color: 'var(--ink-primary)' }}>
+              Manage Pro subscription
             </h2>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', margin: '0.2rem 0 0' }}>
-              View subscription details and payment settings for {organization.name}.
+            <p style={{ fontSize: '0.8125rem', color: 'var(--ink-muted)', margin: '0.25rem 0 0' }}>
+              Subscription status and payment details for {organization.name}.
             </p>
           </div>
           <button
@@ -125,8 +188,8 @@ export function ManageSubscriptionModal({
             style={{
               background: 'transparent',
               border: 'none',
-              color: 'var(--text-secondary)',
-              fontSize: '1.4rem',
+              color: 'var(--ink-muted)',
+              fontSize: '1.25rem',
               cursor: 'pointer'
             }}
           >
@@ -134,82 +197,68 @@ export function ManageSubscriptionModal({
           </button>
         </div>
 
-        {/* Subscription Info Card */}
+        {/* Subscription Info Panel */}
         <div style={{
-          backgroundColor: 'rgba(0, 0, 0, 0.35)',
-          borderRadius: '0.75rem',
-          padding: '1.25rem',
-          border: '1px solid rgba(255, 255, 255, 0.08)',
-          marginBottom: '1.5rem',
+          backgroundColor: 'var(--bg-canvas)',
+          borderRadius: '4px',
+          padding: '1rem',
+          border: '1px solid var(--border-color)',
+          marginBottom: '1.25rem',
           display: 'flex',
           flexDirection: 'column',
-          gap: '0.75rem',
-          fontSize: '0.9rem'
+          gap: '0.625rem',
+          fontSize: '0.875rem'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Current Tier:</span>
-            <span style={{ fontWeight: 800, color: '#6ee7b7', backgroundColor: 'rgba(16, 185, 129, 0.15)', padding: '0.2rem 0.6rem', borderRadius: '9999px', fontSize: '0.8rem', border: '1px solid #10b981' }}>
-              ⭐ PRO PLAN
+            <span style={{ color: 'var(--ink-muted)' }}>Current tier:</span>
+            <span style={{ fontWeight: 600, color: organization.plan === 'pro' ? 'var(--status-matched)' : 'var(--ink-muted)' }}>
+              {organization.plan === 'pro' ? 'Pro Plan' : 'Free Plan'}
             </span>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Billing Cycle:</span>
-            <span style={{ fontWeight: 600, color: '#f8fafc', textTransform: 'capitalize' }}>
-              {organization.billing_cycle === 'annual' ? 'Annual (1 Year - $468/yr)' : 'Monthly ($49/mo)'}
+            <span style={{ color: 'var(--ink-muted)' }}>Billing cycle:</span>
+            <span style={{ color: 'var(--ink-primary)', textTransform: 'capitalize' }}>
+              {organization.billing_cycle === 'annual' ? 'Annual ($468/yr)' : 'Monthly ($49/mo)'}
             </span>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Auto-Renewal Status:</span>
-            <span style={{
-              fontWeight: 700,
-              fontSize: '0.8rem',
-              color: isCancelled ? '#fcd34d' : '#34d399'
-            }}>
-              {isCancelled ? '⚠️ Cancelled (Expires at End of Cycle)' : '✅ Active (Auto-Renews)'}
+            <span style={{ color: 'var(--ink-muted)' }}>Auto-renewal:</span>
+            <span style={{ fontWeight: 600, color: isCancelled ? 'var(--status-pending)' : 'var(--status-matched)' }}>
+              {isCancelled ? 'Cancelled (Ends at period end)' : 'Active (Auto-renews)'}
             </span>
           </div>
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>
-              {isCancelled ? 'Access Valid Through:' : 'Next Renewal Date:'}
+            <span style={{ color: 'var(--ink-muted)' }}>
+              {isCancelled ? 'Access valid through:' : 'Next renewal date:'}
             </span>
-            <span style={{ fontWeight: 700, color: '#a5b4fc' }}>
+            <span style={{ fontWeight: 600, color: 'var(--ink-primary)' }}>
               {expiresAt}
             </span>
           </div>
 
           {organization.last_payment_txn && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.8rem', marginTop: '0.25rem' }}>
-              <span style={{ color: 'var(--text-secondary)', fontWeight: 500 }}>Last Transaction ID:</span>
-              <code style={{
-                fontSize: '0.75rem',
-                color: '#93c5fd',
-                backgroundColor: 'rgba(0, 0, 0, 0.4)',
-                padding: '0.4rem 0.6rem',
-                borderRadius: '0.375rem',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                wordBreak: 'break-all',
-                overflowWrap: 'anywhere',
-                whiteSpace: 'pre-wrap'
-              }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', fontSize: '0.75rem', marginTop: '0.25rem' }}>
+              <span style={{ color: 'var(--ink-muted)' }}>Transaction ID:</span>
+              <code style={{ fontSize: '0.75rem', color: 'var(--ink-primary)', wordBreak: 'break-all' }}>
                 {organization.last_payment_txn}
               </code>
             </div>
           )}
         </div>
 
-        {/* Status Alerts */}
+        {/* Status Messages */}
         {message && (
-          <div style={{ padding: '0.75rem', borderRadius: '0.5rem', backgroundColor: 'rgba(16, 185, 129, 0.15)', border: '1px solid #10b981', color: '#6ee7b7', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-            ✅ {message}
+          <div style={{ padding: '0.625rem', borderRadius: '4px', backgroundColor: 'var(--status-matched-bg)', border: '1px solid var(--status-matched-border)', color: 'var(--status-matched)', fontSize: '0.8125rem', marginBottom: '1rem' }}>
+            {message}
           </div>
         )}
 
         {error && (
-          <div style={{ padding: '0.75rem', borderRadius: '0.5rem', backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid #ef4444', color: '#fca5a5', fontSize: '0.85rem', marginBottom: '1.25rem' }}>
-            ⚠️ {error}
+          <div style={{ padding: '0.625rem', borderRadius: '4px', backgroundColor: 'var(--status-rejected-bg)', border: '1px solid var(--status-rejected-border)', color: 'var(--status-rejected)', fontSize: '0.8125rem', marginBottom: '1rem' }}>
+            {error}
           </div>
         )}
 
@@ -217,22 +266,21 @@ export function ManageSubscriptionModal({
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {!isCancelled ? (
             <button
-              onClick={handleCancelSubscription}
+              onClick={promptCancelSubscription}
               disabled={loading}
               style={{
                 width: '100%',
-                padding: '0.75rem',
-                borderRadius: '0.5rem',
-                border: '1px solid #ef4444',
-                backgroundColor: 'rgba(239, 68, 68, 0.15)',
-                color: '#fca5a5',
-                fontWeight: 700,
-                fontSize: '0.9rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
+                padding: '0.625rem',
+                borderRadius: '4px',
+                border: '1px solid var(--status-rejected-border)',
+                backgroundColor: 'var(--status-rejected-bg)',
+                color: 'var(--status-rejected)',
+                fontWeight: 600,
+                fontSize: '0.8125rem',
+                cursor: 'pointer'
               }}
             >
-              {loading ? 'Processing Cancellation...' : '🚫 Cancel Future Auto-Renewal'}
+              {loading ? 'Processing cancellation...' : 'Cancel future auto-renewal'}
             </button>
           ) : (
             <button
@@ -240,26 +288,58 @@ export function ManageSubscriptionModal({
               disabled={loading}
               style={{
                 width: '100%',
-                padding: '0.75rem',
-                borderRadius: '0.5rem',
-                border: '1px solid #10b981',
-                backgroundColor: 'rgba(16, 185, 129, 0.15)',
-                color: '#6ee7b7',
-                fontWeight: 700,
-                fontSize: '0.9rem',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
+                padding: '0.625rem',
+                borderRadius: '4px',
+                border: 'none',
+                backgroundColor: 'var(--accent-navy)',
+                color: 'var(--accent-navy-text)',
+                fontWeight: 600,
+                fontSize: '0.8125rem',
+                cursor: 'pointer'
               }}
             >
-              {loading ? 'Resuming...' : '🔄 Resume Auto-Renewal'}
+              {loading ? 'Resuming...' : 'Resume auto-renewal'}
             </button>
           )}
 
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', margin: 0, textAlign: 'center', lineHeight: '1.4' }}>
-            Note: Cancelling future billing stops future recurring charges while granting full Pro tier features until <strong>{expiresAt}</strong>.
+          {organization.plan === 'pro' && (
+            <button
+              onClick={promptDowngradeToFree}
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '0.5rem',
+                borderRadius: '4px',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'transparent',
+                color: 'var(--ink-muted)',
+                fontWeight: 500,
+                fontSize: '0.75rem',
+                cursor: 'pointer'
+              }}
+            >
+              Downgrade to Free plan immediately (Testing)
+            </button>
+          )}
+
+          <p style={{ fontSize: '0.75rem', color: 'var(--ink-muted)', margin: 0, textAlign: 'center', lineHeight: '1.4' }}>
+            Note: Cancelling auto-renewal stops future charges while maintaining full Pro access until <strong>{expiresAt}</strong>.
           </p>
         </div>
       </div>
+
+      <ConfirmationModal
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        description={confirmConfig.description}
+        confirmText={confirmConfig.confirmText}
+        isDestructive={confirmConfig.isDestructive}
+        loading={loading}
+        onConfirm={() => {
+          if (confirmConfig.onConfirm) confirmConfig.onConfirm()
+        }}
+        onClose={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+      />
     </div>
   )
 }
