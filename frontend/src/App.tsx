@@ -496,6 +496,7 @@ export function App() {
                   loading={loading}
                   isPro={isPro}
                   onOpenPricingModal={() => setPricingModalOpen(true)}
+                  showToast={showToast}
                 />
               }
             />

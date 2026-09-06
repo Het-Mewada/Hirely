@@ -39,11 +39,11 @@ export function ToastContainer({ toasts, onDismiss }: ToastContainerProps) {
 
 function ToastItem({ toast, onDismiss }: { toast: ToastMessage; onDismiss: (id: string) => void }) {
   useEffect(() => {
-    // Errors stay until manually dismissed; Success & Info auto-dismiss after 4 seconds
+    // Errors stay until manually dismissed; Success & Info auto-dismiss after 2 seconds
     if (toast.type !== 'error') {
       const timer = setTimeout(() => {
         onDismiss(toast.id);
-      }, 4000);
+      }, 2000);
       return () => clearTimeout(timer);
     }
   }, [toast.id, toast.type, onDismiss]);
