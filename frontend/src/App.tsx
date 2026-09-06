@@ -1,13 +1,20 @@
 import React, { useState, useEffect } from 'react'
 import { ScoreBreakdownModal } from './components/ScoreBreakdownModal'
+import { PricingCheckoutModal } from './components/PricingCheckoutModal'
+import { ManageSubscriptionModal } from './components/ManageSubscriptionModal'
 
 export function App() {
   const [apiStatus, setApiStatus] = useState<string>('Checking...')
   
   // Navigation Tab State
-  const [activeTab, setActiveTab] = useState<'signup' | 'login' | 'jobs' | 'candidates' | 'pipeline'>('pipeline')
+  const [activeTab, setActiveTab] = useState<'signup' | 'login' | 'jobs' | 'candidates' | 'pipeline' | 'audit'>('pipeline')
   const [selectedScoreApp, setSelectedScoreApp] = useState<any>(null)
   const [scoreModalOpen, setScoreModalOpen] = useState(false)
+  const [pricingModalOpen, setPricingModalOpen] = useState(false)
+  const [manageModalOpen, setManageModalOpen] = useState(false)
+  
+  // Audit Log State
+  const [auditLogsList, setAuditLogsList] = useState<any[]>([])
   
   // Auth Form State
   const [companyName, setCompanyName] = useState('Acme Corp')
@@ -436,18 +443,111 @@ export function App() {
     if (res.ok) setApplicationsList(data)
   }
 
+  const fetchAuditLogsList = async () => {
+    if (!authResponse?.access_token) return
+    try {
+      const res = await fetch('http://localhost:8000/api/v1/audit-logs', { headers: { 'Authorization': `Bearer ${authResponse.access_token}` } })
+      const data = await res.json()
+      if (res.ok) setAuditLogsList(data)
+    } catch (err) {
+      console.error('Failed to fetch audit logs', err)
+    }
+  }
+
+
+
+  const fetchMyOrganization = async () => {
+    if (!authResponse?.access_token) return
+    try {
+      const res = await fetch('http://localhost:8000/api/v1/organizations/me', {
+        headers: { 'Authorization': `Bearer ${authResponse.access_token}` }
+      })
+      const data = await res.json()
+      if (res.ok && data.plan) {
+        setAuthResponse((prev: any) => {
+          if (!prev) return null
+          const updated = { ...prev, organization: data }
+          localStorage.setItem('hirely_auth', JSON.stringify(updated))
+          return updated
+        })
+      }
+    } catch (err) {
+      console.error('Failed to sync organization details', err)
+    }
+  }
+
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search)
+    const sessionId = queryParams.get('session_id')
+    const paymentStatus = queryParams.get('payment_status')
+
+    if (authResponse?.access_token && paymentStatus === 'success' && sessionId) {
+      fetch('http://localhost:8000/api/v1/organizations/verify-checkout-session', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authResponse.access_token}`
+        },
+        body: JSON.stringify({ session_id: sessionId })
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.organization) {
+            setAuthResponse((prev: any) => {
+              const updated = { ...prev, organization: data.organization }
+              localStorage.setItem('hirely_auth', JSON.stringify(updated))
+              return updated
+            })
+            setDemoResponse({ endpoint: 'POST /organizations/verify-checkout-session', status: 200, data })
+          }
+          window.history.replaceState({}, document.title, window.location.pathname)
+        })
+        .catch(err => console.error('Verification failed', err))
+    }
+  }, [authResponse?.access_token])
+
   useEffect(() => {
     if (authResponse?.access_token) {
+      fetchMyOrganization()
       fetchJobsList()
       fetchCandidatesList()
       fetchApplicationsList()
+      fetchAuditLogsList()
     }
-  }, [authResponse])
+  }, [authResponse?.access_token])
+
+  // Poll applications safely every 5 seconds if any application is pending or processing
+  useEffect(() => {
+    if (!authResponse?.access_token) return;
+
+    const interval = setInterval(() => {
+      setApplicationsList((prevList) => {
+        const hasPendingOrProcessing = prevList.some(
+          (a: any) => a.status === 'pending' || a.status === 'processing'
+        );
+        if (hasPendingOrProcessing) {
+          fetch('http://localhost:8000/api/v1/applications', {
+            headers: { 'Authorization': `Bearer ${authResponse.access_token}` }
+          })
+            .then(res => res.json())
+            .then(data => {
+              if (Array.isArray(data)) setApplicationsList(data);
+            })
+            .catch(() => {});
+        }
+        return prevList;
+      });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [authResponse]);
+
 
   const pipelineStages = ['applied', 'screening', 'interview', 'offer', 'hired', 'rejected']
 
   return (
     <div className="container" style={{ textAlign: 'center', paddingTop: '2.5rem', paddingBottom: '4rem' }}>
+
       {/* Badge */}
       <div style={{
         display: 'inline-flex',
@@ -469,7 +569,7 @@ export function App() {
           borderRadius: '50%',
           backgroundColor: apiStatus === 'healthy' || apiStatus === 'Connected' ? '#10b981' : '#ef4444'
         }} />
-        <span>✨ Phase 9 — Custom ATS Resume-Job Match Scoring ({apiStatus})</span>
+        <span>⚡ Phase 12 — Subscription Plan Tier Gating (Free / Pro) ({apiStatus})</span>
       </div>
 
       <h1 style={{ fontSize: '3rem', fontWeight: 800, marginBottom: '0.75rem', letterSpacing: '-0.025em' }}>
@@ -477,8 +577,9 @@ export function App() {
       </h1>
       
       <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', maxWidth: '750px', margin: '0 auto 2rem', lineHeight: '1.5' }}>
-        Custom 60/30/10 ATS Resume-Job Match Scoring with Explainable Breakdown.
+        Multi-Tenant ATS with Subscription Tier Feature Gating (Free vs Pro Tier).
       </p>
+
 
       {/* Navigation Bar */}
       <div style={{
@@ -490,10 +591,13 @@ export function App() {
         border: '1px solid var(--border-color)',
         marginBottom: '2rem'
       }}>
-        {(['candidates', 'pipeline', 'jobs', 'signup', 'login'] as const).map(tab => (
+        {(['candidates', 'pipeline', 'jobs', 'audit', 'signup', 'login'] as const).map(tab => (
           <button
             key={tab}
-            onClick={() => setActiveTab(tab)}
+            onClick={() => {
+              setActiveTab(tab)
+              if (tab === 'audit') fetchAuditLogsList()
+            }}
             style={{
               padding: '0.5rem 1rem',
               borderRadius: '0.5rem',
@@ -506,7 +610,7 @@ export function App() {
               textTransform: 'capitalize'
             }}
           >
-            {tab === 'candidates' ? '📄 Candidates & Resumes' : tab === 'pipeline' ? '⚡ Pipeline & ATS Scoring' : tab === 'jobs' ? '💼 Jobs' : tab === 'signup' ? '🏢 Tenant Signup' : '🔑 Login'}
+            {tab === 'candidates' ? '📄 Candidates & Resumes' : tab === 'pipeline' ? '⚡ Pipeline & ATS Scoring' : tab === 'jobs' ? '💼 Jobs' : tab === 'audit' ? '📜 Audit Logs' : tab === 'signup' ? '🏢 Tenant Signup' : '🔑 Login'}
           </button>
         ))}
       </div>
@@ -517,16 +621,55 @@ export function App() {
         </div>
       )}
 
-      {/* Auth Notification Bar */}
+      {/* Auth Notification & Subscription Plan Status Bar */}
       {authResponse && (
-        <div style={{ maxWidth: '950px', margin: '0 auto 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-card)', padding: '0.75rem 1.25rem', borderRadius: '0.75rem', border: '1px solid var(--border-color)' }}>
-          <div style={{ fontSize: '0.85rem', color: '#34d399', fontWeight: 600 }}>
-            🏢 {authResponse.organization.name} | 👤 {authResponse.user.full_name} ({authResponse.user.role.toUpperCase()})
+        <div style={{ maxWidth: '980px', margin: '0 auto 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'var(--bg-card)', padding: '0.75rem 1.25rem', borderRadius: '0.75rem', border: '1px solid var(--border-color)', gap: '1rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '0.85rem', color: '#34d399', fontWeight: 600 }}>
+              🏢 {authResponse.organization.name} | 👤 {authResponse.user.full_name} ({authResponse.user.role.toUpperCase()})
+            </span>
+            <span style={{
+              padding: '0.2rem 0.6rem',
+              borderRadius: '9999px',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              backgroundColor: (authResponse.organization?.plan || 'free') === 'pro' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+              border: (authResponse.organization?.plan || 'free') === 'pro' ? '1px solid #10b981' : '1px solid #f59e0b',
+              color: (authResponse.organization?.plan || 'free') === 'pro' ? '#6ee7b7' : '#fde047'
+            }}>
+              {(authResponse.organization?.plan || 'free') === 'pro'
+                ? authResponse.organization?.cancel_at_period_end
+                  ? '⚠️ PRO TIER (Cancels at Period End)'
+                  : '⭐ PRO TIER'
+                : 'FREE TIER (Max 2 Jobs)'}
+            </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-              Storage Path: <code>uploads/{authResponse.organization.id.substring(0, 8)}.../resumes/</code>
-            </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            {authResponse.user.role === 'admin' && (
+              <button
+                onClick={() => {
+                  if ((authResponse.organization?.plan || 'free') === 'pro') {
+                    setManageModalOpen(true)
+                  } else {
+                    setPricingModalOpen(true)
+                  }
+                }}
+                disabled={loading}
+                style={{
+                  padding: '0.35rem 0.75rem',
+                  borderRadius: '0.375rem',
+                  backgroundColor: (authResponse.organization?.plan || 'free') === 'pro' ? 'rgba(99, 102, 241, 0.2)' : 'rgba(99, 102, 241, 0.2)',
+                  border: (authResponse.organization?.plan || 'free') === 'pro' ? '1px solid #6366f1' : '1px solid #6366f1',
+                  color: (authResponse.organization?.plan || 'free') === 'pro' ? '#a5b4fc' : '#a5b4fc',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                {(authResponse.organization?.plan || 'free') === 'pro' ? '💳 Manage Subscription' : '⚡ Upgrade to Pro ⭐'}
+              </button>
+            )}
             <button
               onClick={handleLogout}
               style={{
@@ -796,10 +939,28 @@ export function App() {
                           {app.job_posting ? app.job_posting.title : 'Job Posting'}
                         </div>
                         
-                        {/* ATS Match Score Section */}
-                        {app.match_score !== null && app.match_score !== undefined ? (
+                        {/* ATS Match Score & Async Processing Status */}
+                        {app.status === 'pending' || app.status === 'processing' ? (
+                          <div style={{ margin: '0.4rem 0', padding: '0.35rem 0.5rem', borderRadius: '0.25rem', backgroundColor: 'rgba(99, 102, 241, 0.15)', border: '1px solid rgba(99, 102, 241, 0.3)', color: '#818cf8', fontSize: '0.7rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <svg style={{ animation: 'spin 1.5s linear infinite', width: '0.85rem', height: '0.85rem' }} fill="none" viewBox="0 0 24 24">
+                              <circle opacity="0.25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path opacity="0.75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            {app.status === 'pending' ? '⏳ Queued Celery...' : '⚡ Processing ATS...'}
+                          </div>
+                        ) : app.status === 'failed' ? (
                           <div style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: app.match_score >= 70 ? '#34d399' : app.match_score >= 50 ? '#facc15' : '#f87171', backgroundColor: 'rgba(0,0,0,0.4)', padding: '0.2rem 0.5rem', borderRadius: '0.25rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <span style={{ fontSize: '0.7rem', color: '#f87171', fontWeight: 700 }}>⚠️ Failed</span>
+                            <button
+                              onClick={() => handleScoreApplication(app.id)}
+                              style={{ fontSize: '0.65rem', padding: '0.15rem 0.4rem', borderRadius: '0.25rem', border: '1px solid #ef4444', backgroundColor: 'rgba(239,68,68,0.15)', color: '#fca5a5', fontWeight: 600, cursor: 'pointer' }}
+                            >
+                              Retry
+                            </button>
+                          </div>
+                        ) : app.match_score !== null && app.match_score !== undefined ? (
+                          <div style={{ margin: '0.4rem 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 800, color: app.match_score >= 75 ? '#34d399' : app.match_score >= 45 ? '#facc15' : '#f87171', backgroundColor: 'rgba(0,0,0,0.4)', padding: '0.2rem 0.5rem', borderRadius: '0.25rem', border: '1px solid rgba(255,255,255,0.1)' }}>
                               🎯 {app.match_score}% Match
                             </span>
                             <button
@@ -817,6 +978,7 @@ export function App() {
                             ⚡ Score Match (60/30/10)
                           </button>
                         )}
+
                         
                         <select
                           value={app.stage}
@@ -825,9 +987,10 @@ export function App() {
                         >
                           {pipelineStages.map(s => (
                             <option key={s} value={s} style={{ backgroundColor: '#1e293b', color: '#f8fafc' }}>
-                              Move to {s}
+                              {s === app.stage ? s.charAt(0).toUpperCase() + s.slice(1) : `Move to ${s}`}
                             </option>
                           ))}
+
                         </select>
                       </div>
                     ))}
@@ -1022,6 +1185,89 @@ export function App() {
         </div>
       )}
 
+      {activeTab === 'audit' && (
+        <div style={{ maxWidth: '1050px', margin: '0 auto', textAlign: 'left', backgroundColor: 'var(--bg-card)', padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+            <div>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700 }}>📜 Tenant Audit Log Trail</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                Tracked security & administrative actions for organization (Admin Access Only).
+              </p>
+            </div>
+            {authResponse && (
+              <button
+                onClick={fetchAuditLogsList}
+                style={{ fontSize: '0.75rem', padding: '0.35rem 0.75rem', borderRadius: '0.375rem', border: 'none', backgroundColor: '#3b82f6', color: 'white', fontWeight: 600, cursor: 'pointer' }}
+              >
+                🔄 Refresh Logs
+              </button>
+            )}
+          </div>
+
+          {!authResponse ? (
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Please log in to view audit logs.</p>
+          ) : authResponse.user.role !== 'admin' ? (
+            <div style={{ padding: '1rem', borderRadius: '0.5rem', backgroundColor: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.3)', color: '#f87171', fontSize: '0.85rem' }}>
+              🔒 Access Restricted: Audit logs are only accessible by Organization Administrators.
+            </div>
+          ) : auditLogsList.length === 0 ? (
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>No audit events logged yet.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxHeight: '550px', overflowY: 'auto' }}>
+              {auditLogsList.map((log: any) => {
+                const actionColors: Record<string, { bg: string; text: string }> = {
+                  'application.stage_changed': { bg: 'rgba(99, 102, 241, 0.15)', text: '#a5b4fc' },
+                  'user.role_changed': { bg: 'rgba(234, 179, 8, 0.15)', text: '#fde047' },
+                  'user.invited': { bg: 'rgba(16, 185, 129, 0.15)', text: '#6ee7b7' },
+                  'job.created': { bg: 'rgba(59, 130, 246, 0.15)', text: '#93c5fd' },
+                  'job.updated': { bg: 'rgba(168, 85, 247, 0.15)', text: '#c084fc' },
+                  'job.deleted': { bg: 'rgba(239, 68, 68, 0.15)', text: '#fca5a5' },
+                }
+                const color = actionColors[log.action] || { bg: 'rgba(148, 163, 184, 0.15)', text: '#cbd5e1' }
+                
+                return (
+                  <div
+                    key={log.id}
+                    style={{
+                      padding: '0.875rem',
+                      borderRadius: '0.5rem',
+                      backgroundColor: 'rgba(0,0,0,0.3)',
+                      border: '1px solid rgba(255,255,255,0.06)',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      gap: '1rem'
+                    }}
+                  >
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.35rem' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '0.15rem 0.5rem', borderRadius: '0.25rem', backgroundColor: color.bg, color: color.text }}>
+                          {log.action}
+                        </span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                          Target: <code>{log.target_type}:{log.target_id?.substring(0, 8)}...</code>
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.8rem', color: '#e2e8f0' }}>
+                        👤 Actor ID: <code>{log.actor_id?.substring(0, 8)}...</code>
+                        {log.details && (
+                          <span style={{ marginLeft: '0.75rem', color: 'var(--text-secondary)' }}>
+                            Details: {JSON.stringify(log.details)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      🕒 {new Date(log.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {(activeTab === 'signup' || activeTab === 'login') && (
         <div style={{ maxWidth: '500px', margin: '0 auto', textAlign: 'left', backgroundColor: 'var(--bg-card)', padding: '1.5rem', borderRadius: '1rem', border: '1px solid var(--border-color)' }}>
           {activeTab === 'signup' ? (
@@ -1089,6 +1335,36 @@ export function App() {
         isOpen={scoreModalOpen}
         onClose={() => setScoreModalOpen(false)}
         application={selectedScoreApp}
+      />
+
+      {/* Subscription Pricing & Stripe Payment Gateway Modal */}
+      <PricingCheckoutModal
+        isOpen={pricingModalOpen}
+        onClose={() => setPricingModalOpen(false)}
+        token={authResponse?.access_token}
+        onSuccess={(updatedOrg, receipt) => {
+          const updatedAuth = { ...authResponse, organization: updatedOrg }
+          localStorage.setItem('hirely_auth', JSON.stringify(updatedAuth))
+          setAuthResponse(updatedAuth)
+          setDemoResponse({ endpoint: 'POST /organizations/checkout', status: 200, data: receipt })
+          fetchAuditLogsList()
+        }}
+      />
+
+      {/* Subscription Portal / Auto-Renewal Cancellation Modal */}
+      <ManageSubscriptionModal
+        isOpen={manageModalOpen}
+        onClose={() => setManageModalOpen(false)}
+        token={authResponse?.access_token}
+        organization={authResponse?.organization}
+        onSubscriptionUpdated={(updatedOrg) => {
+          setAuthResponse((prev: any) => {
+            const updated = { ...prev, organization: updatedOrg }
+            localStorage.setItem('hirely_auth', JSON.stringify(updated))
+            return updated
+          })
+          fetchAuditLogsList()
+        }}
       />
     </div>
   )

@@ -8,14 +8,17 @@ from app.db.session import get_db
 from app.api.deps import get_current_user, require_role
 from app.models.user import User, UserRole
 from app.models.candidate import Candidate
+from app.models.application import Application
 from app.models.audit_log import AuditLog
 from app.repositories.base import TenantRepository
 from app.schemas.candidate import CandidateCreate, CandidateUpdate, CandidateOut
 from app.services.storage import StorageService
 from app.services.parser import ResumeParserService
 from app.services.extractor import ResumeExtractorService
+from app.tasks.resume_tasks import trigger_resume_processing
 
 router = APIRouter(prefix="/candidates", tags=["Candidates"])
+
 
 @router.post("", response_model=CandidateOut, status_code=status.HTTP_201_CREATED)
 def create_candidate(
@@ -95,6 +98,7 @@ async def upload_candidate_resume(
     )
 
     # Log audit event
+
     audit_log = AuditLog(
         organization_id=current_user.organization_id,
         user_id=current_user.id,
@@ -112,7 +116,22 @@ async def upload_candidate_resume(
     db.add(audit_log)
     db.commit()
 
+    # Trigger async rescoring for candidate's existing applications
+    cand_apps = db.query(Application).filter(
+        Application.candidate_id == candidate_id,
+        Application.organization_id == current_user.organization_id
+    ).all()
+    for app in cand_apps:
+        trigger_resume_processing(
+            application_id=str(app.id),
+            candidate_id=str(candidate_id),
+            job_posting_id=str(app.job_posting_id),
+            organization_id=str(current_user.organization_id),
+            db=db
+        )
+
     return CandidateOut.model_validate(updated_candidate)
+
 
 @router.post("/{candidate_id}/extract-entities", response_model=CandidateOut)
 def extract_candidate_entities(

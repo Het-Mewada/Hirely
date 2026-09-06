@@ -1,11 +1,23 @@
 from pydantic_settings import BaseSettings
-from typing import List
+from pydantic import field_validator
+from typing import List, Union
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Hirely API"
     API_V1_STR: str = "/api/v1"
     ENVIRONMENT: str = "development"
     DEBUG: bool = True
+
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def parse_debug(cls, v: Union[bool, str]) -> bool:
+        if isinstance(v, str):
+            if v.lower() in ("true", "1", "t", "yes", "y", "on"):
+                return True
+            if v.lower() in ("false", "0", "f", "no", "n", "off"):
+                return False
+            return True
+        return bool(v)
     
     # Auth & JWT Configuration
     SECRET_KEY: str = "hirely_super_secret_jwt_key_change_in_production_2026"
@@ -25,6 +37,15 @@ class Settings(BaseSettings):
     
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
+
+    CELERY_BROKER_URL: str = "redis://localhost:6379/0"
+    CELERY_RESULT_BACKEND: str = "redis://localhost:6379/0"
+    CELERY_ALWAYS_EAGER: bool = False
+
+    # Stripe Payment Gateway Configuration
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_PUBLISHABLE_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
 
     CORS_ORIGINS: List[str] = [
         "http://localhost:5173",

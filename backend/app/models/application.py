@@ -13,6 +13,12 @@ class ApplicationStage(str, enum.Enum):
     HIRED = "hired"
     REJECTED = "rejected"
 
+class ProcessingStatus(str, enum.Enum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    SCORED = "scored"
+    FAILED = "failed"
+
 class Application(Base, TimestampMixin):
     __tablename__ = "applications"
 
@@ -22,6 +28,7 @@ class Application(Base, TimestampMixin):
     candidate_id = Column(UUID(as_uuid=True), ForeignKey("candidates.id", ondelete="CASCADE"), nullable=False, index=True)
 
     stage = Column(SQLEnum(ApplicationStage), nullable=False, default=ApplicationStage.APPLIED)
+    status = Column(SQLEnum(ProcessingStatus), nullable=False, default=ProcessingStatus.PENDING)
     score = Column(Float, nullable=True)
     match_score = Column(Float, nullable=True)
     score_breakdown = Column(JSON, nullable=True)
@@ -31,3 +38,4 @@ class Application(Base, TimestampMixin):
     organization = relationship("Organization", back_populates="applications")
     job_posting = relationship("JobPosting", back_populates="applications")
     candidate = relationship("Candidate", back_populates="applications")
+

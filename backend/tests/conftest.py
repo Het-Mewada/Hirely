@@ -3,17 +3,21 @@ import uuid
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from app.db.base_class import Base
-from app.models.organization import Organization
-from app.models.user import User, UserRole
-from app.models.candidate import Candidate
+from app.models import Organization, User, UserRole, JobPosting, JobStatus, Candidate, Application, ApplicationStage, AuditLog
 from app.core.security import hash_password
+
+from sqlalchemy.pool import StaticPool
 
 # Use SQLite in-memory for lightning fast test execution
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///:memory:"
 
 @pytest.fixture(scope="function")
 def db_session():
-    engine = create_engine(SQLALCHEMY_TEST_DATABASE_URL, connect_args={"check_same_thread": False})
+    engine = create_engine(
+        SQLALCHEMY_TEST_DATABASE_URL,
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool
+    )
     TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
     Base.metadata.create_all(bind=engine)
     
@@ -102,3 +106,21 @@ def candidate_org_a(db_session, org_a):
     db_session.commit()
     db_session.refresh(candidate)
     return candidate
+
+@pytest.fixture
+def client(db_session):
+    from fastapi.testclient import TestClient
+    from app.main import app
+    from app.db.session import get_db
+
+    def override_get_db():
+        try:
+            yield db_session
+        finally:
+            pass
+
+    app.dependency_overrides[get_db] = override_get_db
+    with TestClient(app) as c:
+        yield c
+    app.dependency_overrides.clear()
+

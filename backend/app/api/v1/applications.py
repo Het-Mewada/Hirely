@@ -7,11 +7,12 @@ from app.api.deps import get_current_user, require_role
 from app.models.user import User, UserRole
 from app.models.candidate import Candidate
 from app.models.job_posting import JobPosting
-from app.models.application import Application, ApplicationStage
+from app.models.application import Application, ApplicationStage, ProcessingStatus
 from app.models.audit_log import AuditLog
 from app.repositories.base import TenantRepository
 from app.schemas.application import ApplicationCreate, ApplicationStageUpdate, ApplicationOut
 from app.services.scoring import ScoringService
+from app.tasks.resume_tasks import trigger_resume_processing
 
 router = APIRouter(prefix="/applications", tags=["Applications & Pipeline"])
 
@@ -23,7 +24,8 @@ def create_application(
 ):
     """
     Link a Candidate to a Job Posting.
-    Initial pipeline stage = 'applied'.
+    Initial pipeline stage = 'applied'. Initial status = 'pending'.
+    Triggers async resume extraction + custom ATS match scoring task via Celery.
     Enforces that both candidate and job posting belong to caller's organization.
     """
     cand_repo = TenantRepository(Candidate, db, current_user.organization_id)
@@ -57,11 +59,12 @@ def create_application(
             detail="Candidate has already submitted an application for this job posting."
         )
 
-    # 4. Create application
+    # 4. Create application with status = PENDING
     application = app_repo.create({
         "job_posting_id": app_in.job_posting_id,
         "candidate_id": app_in.candidate_id,
         "stage": ApplicationStage.APPLIED,
+        "status": ProcessingStatus.PENDING,
         "notes": app_in.notes
     })
 
@@ -75,13 +78,24 @@ def create_application(
         details={
             "job_posting_id": str(app_in.job_posting_id),
             "candidate_id": str(app_in.candidate_id),
-            "stage": ApplicationStage.APPLIED.value
+            "stage": ApplicationStage.APPLIED.value,
+            "status": ProcessingStatus.PENDING.value
         }
     )
     db.add(audit_log)
     db.commit()
 
+    # 5. Dispatch async background task for text extraction & scoring
+    trigger_resume_processing(
+        application_id=str(application.id),
+        candidate_id=str(candidate.id),
+        job_posting_id=str(job.id),
+        organization_id=str(current_user.organization_id),
+        db=db
+    )
+
     return ApplicationOut.model_validate(application)
+
 
 @router.get("", response_model=List[ApplicationOut])
 def list_applications(
@@ -109,7 +123,20 @@ def list_applications(
     else:
         applications = app_repo.list(skip=skip, limit=limit)
 
+    # Auto-process any pending or unscored applications
+    from app.tasks.resume_tasks import run_resume_processing_logic
+    for app in applications:
+        if app.status == ProcessingStatus.PENDING or app.match_score is None:
+            run_resume_processing_logic(
+                application_id=str(app.id),
+                candidate_id=str(app.candidate_id),
+                job_posting_id=str(app.job_posting_id),
+                organization_id=str(current_user.organization_id),
+                db=db
+            )
+
     return [ApplicationOut.model_validate(a) for a in applications]
+
 
 @router.get("/{application_id}", response_model=ApplicationOut)
 def get_application(
@@ -204,6 +231,15 @@ def score_application(
     Calculates 60% skill overlap + 30% experience fit + 10% TF-IDF similarity.
     Stores match_score and score_breakdown on the Application record.
     """
+    # Subscription Plan Gating for Pro Tier (AI Resume Scoring)
+    from app.models.organization import Organization
+    org = db.query(Organization).filter(Organization.id == current_user.organization_id).first()
+    if org and org.plan.lower() == "free":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="AI Resume Scoring is a Pro feature. Upgrade your organization plan to Pro to unlock ATS match scoring."
+        )
+
     app_repo = TenantRepository(Application, db, current_user.organization_id)
     application = app_repo.get(application_id)
     if not application:

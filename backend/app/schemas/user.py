@@ -1,7 +1,9 @@
 from pydantic import BaseModel, EmailStr, ConfigDict
+from typing import Optional
 from uuid import UUID
 from datetime import datetime
 from app.models.user import UserRole
+
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -12,6 +14,13 @@ class UserCreate(UserBase):
     role: UserRole = UserRole.RECRUITER
     organization_id: UUID
 
+class UserInviteRequest(UserBase):
+    role: UserRole = UserRole.RECRUITER
+    password: Optional[str] = None
+
+class UserRoleUpdateRequest(BaseModel):
+    role: UserRole
+
 class UserOut(UserBase):
     id: UUID
     organization_id: UUID
@@ -20,3 +29,4 @@ class UserOut(UserBase):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+

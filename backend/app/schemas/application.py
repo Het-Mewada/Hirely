@@ -2,7 +2,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from typing import Optional, Dict
 from uuid import UUID
 from datetime import datetime
-from app.models.application import ApplicationStage
+from app.models.application import ApplicationStage, ProcessingStatus
 from app.schemas.candidate import CandidateOut
 from app.schemas.job_posting import JobPostingOut
 
@@ -21,12 +21,14 @@ class ApplicationOut(BaseModel):
     job_posting_id: UUID
     candidate_id: UUID
     stage: ApplicationStage
+    status: ProcessingStatus = Field(ProcessingStatus.PENDING, description="Async processing status: pending, processing, scored, failed")
     score: Optional[float] = None
     match_score: Optional[float] = Field(None, description="Final weighted ATS match score (0 to 100)")
     score_breakdown: Optional[Dict] = Field(None, description="Explainable breakdown of skills, experience, and similarity scores")
     notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
 
 
     candidate: Optional[CandidateOut] = None
