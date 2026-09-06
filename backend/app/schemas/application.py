@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict, Field
-from typing import Optional
+from typing import Optional, Dict
 from uuid import UUID
 from datetime import datetime
 from app.models.application import ApplicationStage
@@ -22,9 +22,12 @@ class ApplicationOut(BaseModel):
     candidate_id: UUID
     stage: ApplicationStage
     score: Optional[float] = None
+    match_score: Optional[float] = Field(None, description="Final weighted ATS match score (0 to 100)")
+    score_breakdown: Optional[Dict] = Field(None, description="Explainable breakdown of skills, experience, and similarity scores")
     notes: Optional[str] = None
     created_at: datetime
     updated_at: datetime
+
 
     candidate: Optional[CandidateOut] = None
     job_posting: Optional[JobPostingOut] = None

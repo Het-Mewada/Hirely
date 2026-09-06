@@ -11,6 +11,7 @@ from app.models.application import Application, ApplicationStage
 from app.models.audit_log import AuditLog
 from app.repositories.base import TenantRepository
 from app.schemas.application import ApplicationCreate, ApplicationStageUpdate, ApplicationOut
+from app.services.scoring import ScoringService
 
 router = APIRouter(prefix="/applications", tags=["Applications & Pipeline"])
 
@@ -191,3 +192,56 @@ def delete_application(
             detail=f"Application with ID '{application_id}' not found or cannot be deleted."
         )
     return None
+
+@router.post("/{application_id}/score", response_model=ApplicationOut)
+def score_application(
+    application_id: UUID,
+    current_user: User = Depends(require_role(UserRole.ADMIN, UserRole.RECRUITER, UserRole.HIRING_MANAGER)),
+    db: Session = Depends(get_db)
+):
+    """
+    Triggers explicit, explainable ATS custom match scoring for an application.
+    Calculates 60% skill overlap + 30% experience fit + 10% TF-IDF similarity.
+    Stores match_score and score_breakdown on the Application record.
+    """
+    app_repo = TenantRepository(Application, db, current_user.organization_id)
+    application = app_repo.get(application_id)
+    if not application:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Application with ID '{application_id}' not found."
+        )
+
+    cand_repo = TenantRepository(Candidate, db, current_user.organization_id)
+    job_repo = TenantRepository(JobPosting, db, current_user.organization_id)
+
+    candidate = cand_repo.get(application.candidate_id)
+    job = job_repo.get(application.job_posting_id)
+
+    if not candidate or not job:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Associated Candidate or Job Posting not found."
+        )
+
+    breakdown = ScoringService.compute_match_score(candidate, job)
+    final_score = breakdown["final_score"]
+
+    updated_app = app_repo.update(application_id, {
+        "score": final_score,
+        "match_score": final_score,
+        "score_breakdown": breakdown
+    })
+
+    audit_log = AuditLog(
+        organization_id=current_user.organization_id,
+        user_id=current_user.id,
+        action="application.scored",
+        entity_type="Application",
+        entity_id=str(application_id),
+        details=breakdown
+    )
+    db.add(audit_log)
+    db.commit()
+
+    return ApplicationOut.model_validate(updated_app)

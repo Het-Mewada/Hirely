@@ -1,6 +1,6 @@
 import uuid
 import enum
-from sqlalchemy import Column, String, Text, Float, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Column, String, Text, Float, JSON, ForeignKey, Enum as SQLEnum
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from app.db.base_class import Base, TimestampMixin
@@ -23,6 +23,8 @@ class Application(Base, TimestampMixin):
 
     stage = Column(SQLEnum(ApplicationStage), nullable=False, default=ApplicationStage.APPLIED)
     score = Column(Float, nullable=True)
+    match_score = Column(Float, nullable=True)
+    score_breakdown = Column(JSON, nullable=True)
     notes = Column(Text, nullable=True)
 
     # Relationships

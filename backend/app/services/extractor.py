@@ -171,8 +171,8 @@ class ResumeExtractorService:
         # 2. Estimate Experience Years using NER & Date Patterns
         estimated_years, date_ranges = ResumeExtractorService._estimate_experience(doc, raw_text)
 
-        # 3. Extract Education Credentials & Degree Mention Lines
-        education_items, org_entities = ResumeExtractorService._extract_education_and_orgs(doc, raw_text)
+        # 3. Extract Education Credentials & Certification Items
+        education_items, certification_items, org_entities = ResumeExtractorService._extract_education_and_orgs(doc, raw_text)
 
         return {
             "skills": extracted_skills,
@@ -180,7 +180,8 @@ class ResumeExtractorService:
             "education": education_items,
             "parsed_entities": {
                 "organizations": org_entities,
-                "date_ranges": date_ranges
+                "date_ranges": date_ranges,
+                "certifications": certification_items
             }
         }
 
@@ -289,27 +290,63 @@ class ResumeExtractorService:
         return round(total_years, 1), sorted(list(set(date_ranges)))
 
     @staticmethod
-    def _extract_education_and_orgs(doc, raw_text: str) -> Tuple[List[str], List[str]]:
+    def _extract_education_and_orgs(doc, raw_text: str) -> Tuple[List[str], List[str], List[str]]:
         degree_keywords = [
             "b.s.", "b.a.", "b.tech", "b.e.", "bachelor", "bachelors",
             "m.s.", "m.a.", "m.tech", "master", "masters", "m.b.a.", "mba",
             "ph.d", "phd", "doctorate", "associate degree", "diploma"
         ]
 
+        cert_keywords = [
+            "certificate", "certification", "certifications", "certified",
+            "workshop", "edutech", "coursera", "udemy", "nptel", "training",
+            "bootcamp", "technosparx", "yhills"
+        ]
+
         education_lines = []
+        certification_lines = []
         lines = raw_text.splitlines()
+
+        left_sec = ""
+        right_sec = ""
 
         for line in lines:
             line_str = line.strip()
             if not line_str:
                 continue
-            line_lower = line_str.lower()
-            if any(deg in line_lower for deg in degree_keywords):
-                if len(line_str) <= 150:
-                    education_lines.append(line_str)
 
-        # Deduplicate education lines
+            # Split multi-column text segments (3 or more consecutive spaces)
+            parts = [p.strip() for p in re.split(r'\s{3,}', line_str) if p.strip()]
+
+            # Track section headers (e.g., EDUCATION, CERTIFICATIONS)
+            headers = ["education", "certification", "certifications", "academic", "projects", "experience"]
+            if any(h in line_str.lower() for h in headers):
+                if len(parts) >= 2:
+                    left_sec = parts[0].lower()
+                    right_sec = parts[1].lower()
+                else:
+                    left_sec = parts[0].lower()
+                    right_sec = ""
+                continue
+
+            for idx, part in enumerate(parts):
+                part_lower = part.lower()
+                current_sec = right_sec if (idx >= 1 and right_sec) else left_sec
+
+                is_cert_sec = "cert" in current_sec
+                is_cert_kw = any(ck in part_lower for ck in cert_keywords)
+                is_degree = any(deg in part_lower for deg in degree_keywords)
+
+                if (is_cert_sec or is_cert_kw) and not is_degree:
+                    if len(part) <= 150 and not any(h in part_lower for h in ["education", "certifications", "projects"]):
+                        certification_lines.append(part)
+                elif is_degree:
+                    if len(part) <= 150 and not any(h in part_lower for h in ["education", "certifications", "projects"]):
+                        education_lines.append(part)
+
+        # Deduplicate
         education_lines = sorted(list(set(education_lines)))
+        certification_lines = sorted(list(set(certification_lines)))
 
         # Extract ORG entities using spaCy NER
         org_entities = set()
@@ -319,4 +356,4 @@ class ResumeExtractorService:
                 if len(cleaned) > 2 and not cleaned.lower().startswith("http"):
                     org_entities.add(cleaned)
 
-        return education_lines, sorted(list(org_entities))[:10]
+        return education_lines, certification_lines, sorted(list(org_entities))[:10]
