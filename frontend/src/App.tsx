@@ -27,7 +27,14 @@ export function App() {
   const [selectedResumeFile, setSelectedResumeFile] = useState<File | null>(null)
 
   // Data State
-  const [authResponse, setAuthResponse] = useState<any>(null)
+  const [authResponse, setAuthResponse] = useState<any>(() => {
+    try {
+      const saved = localStorage.getItem('hirely_auth')
+      return saved ? JSON.parse(saved) : null
+    } catch {
+      return null
+    }
+  })
   const [authError, setAuthError] = useState<string>('')
   const [jobsList, setJobsList] = useState<any[]>([])
   const [candidatesList, setCandidatesList] = useState<any[]>([])
@@ -44,11 +51,21 @@ export function App() {
       .catch(() => setApiStatus('Backend offline or initializing'))
   }, [])
 
+  const handleLogout = () => {
+    localStorage.removeItem('hirely_auth')
+    setAuthResponse(null)
+    setJobsList([])
+    setCandidatesList([])
+    setApplicationsList([])
+    setSelectedCandidateId('')
+    setSelectedJobId('')
+    setActiveTab('login')
+  }
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setAuthError('')
-    setAuthResponse(null)
     try {
       const res = await fetch('http://localhost:8000/api/v1/auth/signup', {
         method: 'POST',
@@ -57,6 +74,7 @@ export function App() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || 'Signup failed')
+      localStorage.setItem('hirely_auth', JSON.stringify(data))
       setAuthResponse(data)
       setActiveTab('pipeline')
     } catch (err: any) {
@@ -70,7 +88,6 @@ export function App() {
     e.preventDefault()
     setLoading(true)
     setAuthError('')
-    setAuthResponse(null)
     try {
       const res = await fetch('http://localhost:8000/api/v1/auth/login', {
         method: 'POST',
@@ -79,6 +96,7 @@ export function App() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.detail || 'Login failed')
+      localStorage.setItem('hirely_auth', JSON.stringify(data))
       setAuthResponse(data)
       setActiveTab('pipeline')
     } catch (err: any) {
@@ -327,8 +345,26 @@ export function App() {
           <div style={{ fontSize: '0.85rem', color: '#34d399', fontWeight: 600 }}>
             🏢 {authResponse.organization.name} | 👤 {authResponse.user.full_name} ({authResponse.user.role.toUpperCase()})
           </div>
-          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-            Storage Path: <code>uploads/{authResponse.organization.id.substring(0, 8)}.../resumes/</code>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+              Storage Path: <code>uploads/{authResponse.organization.id.substring(0, 8)}.../resumes/</code>
+            </div>
+            <button
+              onClick={handleLogout}
+              style={{
+                padding: '0.35rem 0.75rem',
+                borderRadius: '0.375rem',
+                backgroundColor: '#ef4444',
+                color: 'white',
+                border: 'none',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'background-color 0.2s'
+              }}
+            >
+              🚪 Logout
+            </button>
           </div>
         </div>
       )}
